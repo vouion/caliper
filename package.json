@@ -46,8 +46,23 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/havrin/havrin.git"
+    "url": "git+https://github.com/vouion/havrin.git"
   },
+  "homepage": "https://github.com/vouion/havrin#readme",
+  "bugs": {
+    "url": "https://github.com/vouion/havrin/issues"
+  },
+  "author": "Gavin Schiller",
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/vouion"
+    },
+    {
+      "type": "buy_me_a_coffee",
+      "url": "https://buymeacoffee.com/vouion"
+    }
+  ],
   "dependencies": {
     "smol-toml": "^1.3.1"
   },
