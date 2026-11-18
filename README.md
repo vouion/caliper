@@ -14,30 +14,11 @@ Caliper analyzes how you actually work with AI coding agents, finds evidence-bac
 
 > Caliper is an open-source project by **Havrin**. Local-first · evidence-driven · provider-agnostic · Apache-2.0.
 
-```
-$ caliper audit
+<p align="center">
+  <img src="assets/demo.gif" alt="Caliper demo: audit finds evidence-backed issues, prompt generates an agent-ready fix, experiment verifies what helps" width="100%" />
+</p>
 
-caliper v0.3.0 · development environment audit
-────────────────────────────────────────────────────────────────────────
-ENVIRONMENT
-  ● opencode  v2.3.1 · sqlite-v2 · 258 sessions
-  ● codex     v0.169.1 · jsonl-rollout · 25 sessions
-  ● claude    v2.1.327 · jsonl-projects · 5422 sessions
-
-FINDINGS (23)  high 1 · medium 12 · low 10
-
-  [HIGH] Repeated identical tool failures in Refactor payment webhook handler
-         rule repeated-tool-failures · confidence high · scope sessions
-         · Tool "subagent" failed 8× with identical input
-         impact: Identical failing calls burn tokens and time without new
-                 information...
-         suggest: Inspect the first failure and fix the precondition...
-
-RECOMMENDATIONS (8)
-  1. The agent repeatedly issued byte-identical tool calls that failed.
-     why: ...  change: ...  evidence: ...  tested: no — observational only
-     apply: 1) ... 2) ...  rollback: ...
-```
+<p align="center"><sub>Real output on synthetic demo data (<code>caliper demo</code>) · <a href="assets/demo.cast">asciinema cast</a> · audit → fix prompt → verified experiment</sub></p>
 
 ## Why Caliper
 
@@ -63,7 +44,7 @@ git clone https://github.com/vouion/caliper && cd caliper
 npm install && npm run build
 npm link                     # puts `caliper` on your PATH
 
-# From npm (registry publish pending account 2FA — see the v0.3.0 release notes):
+# From npm (registry publish pending account 2FA — see the v0.4.0 release notes):
 npm install -g @vouion/caliper
 ```
 

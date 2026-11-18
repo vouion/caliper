@@ -5,7 +5,7 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
-## [Unreleased]
+## 0.4.0 — Agent-ready fix prompts + brand (2026-11-18)
 
 ### Added
 - `caliper prompt`: generate a provider-agnostic, agent-ready prompt from the last audit that instructs your own coding agent to apply the fixes — operating rules (reversible changes, secret hygiene, test verification, rollback changelog), severity-prioritized fixes with evidence/apply/rollback/trade-offs, agent-specific instruction-file references, and a definition of done. Deterministic and zero-LLM; content-free (sentinel-tested). Flags: `--agent generic|opencode|codex|claude`, `--min-severity low|medium|high`, `--output <file>`, `--demo`, `--json`. Caliper still applies nothing itself.
