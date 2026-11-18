@@ -97,8 +97,25 @@ export function spawnControlled(
       settled = true;
       clearTimeout(timer);
       if (killTimer) clearTimeout(killTimer);
-      out?.end();
-      resolve(outcome);
+      if (!out) {
+        resolve(outcome);
+        return;
+      }
+      // Wait for the output stream to fully flush before resolving: the child
+      // 'close' event fires when its stdio ends, but buffered writes may not
+      // yet be on disk. Resolving early truncates the file (e.g. the trailing
+      // node:test TAP summary), corrupting parsed test counts under load.
+      let resolved = false;
+      const done = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve(outcome);
+        }
+      };
+      out.on('finish', done);
+      out.on('close', done);
+      out.on('error', done);
+      out.end();
     };
 
     const killGroup = (signal: NodeJS.Signals) => {

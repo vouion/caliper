@@ -12,6 +12,7 @@ import { runExperimentDemo } from '../src/experiment/demo.ts';
 import { listExperiments, loadExperiment, saveExperiment, acquireRunLock, experimentFile } from '../src/experiment/store.ts';
 import { compareExperiment, aggregateConfig } from '../src/experiment/compare.ts';
 import { parseTestStats } from '../src/experiment/metrics.ts';
+import { spawnControlled } from '../src/experiment/execution/adapter.ts';
 import { linkRecommendationStates } from '../src/experiment/link.ts';
 import { materializeBuiltinTemplate, builtinBenchmark } from '../src/experiment/builtin.ts';
 import { fingerprintSource, materializeWorkspace } from '../src/experiment/workspace.ts';
@@ -115,6 +116,24 @@ test('experiment demo: deterministic verdict across runs', async () => {
     a.comparison.aggregates.map((x) => [x.configId, x.successes, x.testFailures]),
     b.comparison.aggregates.map((x) => [x.configId, x.successes, x.testFailures]),
   );
+});
+
+test('spawnControlled flushes the complete output before resolving', async () => {
+  const dir = tempDir();
+  const stdoutPath = path.join(dir, 'out.txt');
+  // A large payload forces the WriteStream to buffer; the trailing marker is
+  // exactly what a premature resolve (before the stream flushes) truncates —
+  // the bug that dropped the node:test TAP summary under CI load.
+  const outcome = await spawnControlled(
+    [process.execPath, '-e', "process.stdout.write('x'.repeat(1000000) + 'END_MARKER')"],
+    { cwd: dir, timeoutMs: 30_000, stdoutPath },
+  );
+  assert.equal(outcome.exitCode, 0);
+  assert.equal(outcome.timedOut, false);
+  const written = fs.readFileSync(stdoutPath, 'utf8');
+  assert.equal(written.length, 1_000_000 + 'END_MARKER'.length);
+  assert.ok(written.endsWith('END_MARKER'));
+  cleanup(dir);
 });
 
 // ---------------------------------------------------------------------------

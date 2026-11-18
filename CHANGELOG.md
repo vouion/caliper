@@ -5,6 +5,14 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.2 — Reliable acceptance-check output capture (2026-11-18)
+
+### Fixed
+- Experiment acceptance checks now wait for the subprocess output stream to fully flush before parsing. Previously the captured output file could be read before the trailing `node:test` TAP summary was written to disk, sporadically dropping test-failure counts under load (a flaky CI failure on Ubuntu/Node 22). This also hardens output capture for real-agent execution backends.
+
+### Added
+- Regression test asserting `spawnControlled` captures the complete output (including trailing bytes) before resolving.
+
 ## 0.4.1 — Cross-version compatibility (2026-11-18)
 
 ### Fixed

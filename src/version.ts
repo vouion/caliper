@@ -1,1 +1,1 @@
-export const CALIPER_VERSION = '0.4.1';
+export const CALIPER_VERSION = '0.4.2';
