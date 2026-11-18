@@ -457,9 +457,10 @@ test('H-1: deep-nesting processing error yields content-free warning', () => {
   const dir = tempDir();
   const home = path.join(dir, 'claude');
   fs.mkdirSync(home, { recursive: true });
-  // Deeply nested tool input: JSON.parse may succeed where fingerprint
-  // recursion throws, exercising the record-processing catch path.
-  const depth = 30000;
+  // Deeply nested tool input (depth > MAX_CANONICAL_DEPTH=256) exercises the
+  // fingerprint depth cap; kept well below Node's JSON.stringify stack limit
+  // so the fixture itself serializes on all supported Node versions (22+).
+  const depth = 1000;
   const nested = '{"a":'.repeat(depth) + '"NESTED-SENTINEL-SECRET"' + '}'.repeat(depth);
   const line = JSON.stringify({
     type: 'assistant', uuid: 'u1', timestamp: '2026-11-10T10:00:00.000Z', cwd: '/p', isSidechain: false,

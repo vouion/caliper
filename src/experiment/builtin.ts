@@ -61,7 +61,7 @@ const PACKAGE_JSON = JSON.stringify(
     version: '1.0.0',
     private: true,
     type: 'module',
-    scripts: { test: 'node --test test/' },
+    scripts: { test: 'node --test test/price.test.js' },
   },
   null,
   2,
@@ -69,7 +69,7 @@ const PACKAGE_JSON = JSON.stringify(
 
 const README = `# Pricing fixture
 
-Run tests with: node --test test/
+Run tests with: node --test test/price.test.js
 `;
 
 export const BUILTIN_BENCHMARK_ID = 'fix-failing-test';
@@ -93,13 +93,13 @@ export function builtinBenchmark(templateDir: string): BenchmarkSpec {
       'A pricing module has an off-by-one boundary bug: the discount must apply at price >= 100, but the code uses >. Five node:test cases cover the boundary; one fails initially. The agent must fix src/price.js without touching the tests.',
     source: { kind: 'template', path: templateDir },
     taskPrompt:
-      'The test suite in test/price.test.js fails. Run the tests with `node --test test/`, diagnose the failure, and fix the bug in src/price.js so that ALL tests pass. Do NOT modify, delete, or weaken any test file. When done, run the tests again to verify.',
+      'The test suite in test/price.test.js fails. Run the tests with `node --test test/price.test.js`, diagnose the failure, and fix the bug in src/price.js so that ALL tests pass. Do NOT modify, delete, or weaken any test file. When done, run the tests again to verify.',
     acceptance: [
       {
         id: 'tests-pass',
-        description: 'node --test test/ exits 0 (all tests pass)',
+        description: 'node --test test/price.test.js exits 0 (all tests pass)',
         kind: 'test-command',
-        command: 'node --test test/',
+        command: 'node --test test/price.test.js',
         timeoutMs: 60_000,
       },
       {

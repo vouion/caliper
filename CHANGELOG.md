@@ -5,6 +5,15 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.1 — Cross-version compatibility (2026-11-18)
+
+### Fixed
+- `node --test` invocations now work across all supported Node versions (22/24/26). The test script and the built-in benchmark's acceptance command used a bare directory argument (`node --test test/`) that Node 22/24 reject with `MODULE_NOT_FOUND`; both now use explicit file paths. Built-in experiments previously failed to verify on Node 22/24 (every trial reported a failing test check) — they now produce correct verdicts.
+- Deep-nesting privacy test fixture serializes on Node 22 (depth reduced below its `JSON.stringify` stack limit while still exercising the fingerprint depth cap).
+
+### Changed
+- CI: added a per-job timeout to bound any hung run.
+
 ## 0.4.0 — Agent-ready fix prompts + brand (2026-11-18)
 
 ### Added
