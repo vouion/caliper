@@ -10,7 +10,7 @@ agent storage (read-only) ──► adapter ──► normalized model ──►
                                    └──► Havrin state dir (0600, local)
 ```
 
-There is **no network path** in v0.1: no telemetry, no update checks, no remote pricing, no LLM calls. Analysis is fully local and deterministic.
+There is **no network path** in Havrin: no telemetry, no update checks, no remote pricing, no LLM calls. Analysis is fully local and deterministic.
 
 ## What Havrin reads
 

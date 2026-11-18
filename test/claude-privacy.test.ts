@@ -36,6 +36,7 @@ const SENTINELS = [
   'CC-QUEUE-SECRET',
   'CC-SNAPSHOT-SECRET',
   'CC-SUMMARY-SECRET',
+  'CC-IDENTITY-SECRET',
   'CC-CREDENTIAL-TOKEN',
   'sk-ccsecretkey123456789',
   'CC-MCP-ENV-SECRET',
@@ -77,6 +78,8 @@ function setup() {
     { type: 'queue-operation', sessionId: SID, operation: 'enqueue', content: 'CC-QUEUE-SECRET', timestamp: at(5000) },
     { type: 'file-history-snapshot', messageId: 'm', snapshot: { files: { '/x.ts': 'CC-SNAPSHOT-SECRET' } }, isSnapshotUpdate: false },
     { type: 'summary', summary: 'CC-SUMMARY-SECRET', leafUuid: 'x' },
+    { type: 'session-owner', sessionId: SID, accountUuid: 'CC-IDENTITY-SECRET', organizationUuid: 'CC-IDENTITY-SECRET' },
+    { type: 'bridge-session', sessionId: SID, bridgeSessionId: 'b', ownerAccountUuid: 'CC-IDENTITY-SECRET', ownerOrganizationUuid: 'CC-IDENTITY-SECRET', lastSequenceNum: 1 },
     ccBase('system', at(4000), { subtype: 'local_command', content: 'CC-ATTACHMENT-SECRET', commandRun: { command: 'echo CC-TOOL-INPUT-SECRET', args: '' } }),
     ccCostState({ costUSD: 0.01 }),
   ]);

@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall, TokenUsage } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
-import { fingerprint, sanitizeErrorMessage } from '../core/util.ts';
+import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand, commandFromInput } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
 
@@ -169,6 +169,7 @@ export class CodexAdapter implements AgentAdapter {
 
   listSessions(installation: AgentInstallation): SessionMeta[] {
     if (installation.layout !== 'jsonl-rollout') return [];
+    rolloutPathById.clear();
     const sessionsDir = path.join(codexHome(), 'sessions');
     const files: string[] = [];
     walkRollouts(sessionsDir, files);
@@ -202,7 +203,7 @@ export class CodexAdapter implements AgentAdapter {
         signature: `${stat.mtimeMs}:${stat.size}`,
       };
       const title = titles.get(id);
-      if (title) m.title = title.slice(0, 120);
+      if (title) m.title = sanitizeFreeText(title, 120);
       if (directory) m.directory = directory;
       const existing = seen.get(id);
       if (existing !== undefined) {
@@ -465,7 +466,7 @@ export class CodexAdapter implements AgentAdapter {
       tool.commandCategory = classifyCommand(command);
     } else if (call.name === 'apply_patch') {
       const m = /^\*\*\* (?:Update|Add|Delete) File: (.+)$/m.exec(call.rawInput);
-      if (m?.[1]) tool.targetPath = m[1].trim();
+      if (m?.[1]) tool.targetPath = sanitizeControlChars(m[1].trim());
     }
     if (call.reportedStatus === 'failed' || call.reportedStatus === 'incomplete') {
       tool.status = 'error';
@@ -501,10 +502,19 @@ export class CodexAdapter implements AgentAdapter {
   private findRollout(id: string): string | undefined {
     const files: string[] = [];
     walkRollouts(path.join(codexHome(), 'sessions'), files);
+    let best: { file: string; mtime: number } | undefined;
     for (const file of files) {
-      if (file.includes(id)) return file;
+      // Exact id match within the filename (rollout-<ts>-<id>.jsonl), not a
+      // substring match that could hit the wrong session.
+      if (!path.basename(file).endsWith(`-${id}.jsonl`)) continue;
+      try {
+        const mtime = fs.statSync(file).mtimeMs;
+        if (!best || mtime > best.mtime) best = { file, mtime };
+      } catch {
+        /* skip unreadable */
+      }
     }
-    return undefined;
+    return best?.file;
   }
 }
 

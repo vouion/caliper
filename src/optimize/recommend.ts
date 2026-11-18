@@ -91,7 +91,7 @@ const TEMPLATES: Record<string, Template> = {
     tradeoffs: 'If you use the server occasionally, re-enabling takes one config edit; absence in the analysis window is not proof of never using it.',
     apply: [
       'Back up the config file listed in the evidence.',
-      'Remove or disable the listed server entries (OpenCode: mcp.servers.<name>.enabled=false or delete the entry; Codex: remove [mcp_servers.<name>]).',
+      'Remove or disable the listed server entries (OpenCode: mcp.servers.<name>.enabled=false or delete the entry; Codex: remove [mcp_servers.<name>]; Claude Code: remove the entry from the project .mcp.json mcpServers).',
       'Restart the agent and re-run havrin audit after representative usage.',
     ],
     rollback: ['Restore the backed-up config file, or re-add the removed server entry.'],

@@ -4,8 +4,13 @@
  * it renders only what the normalized model carries.
  */
 import type { AuditReport, Finding, Recommendation, Severity } from '../core/types.ts';
-import { formatCost, formatDate, formatDuration, formatTokens } from '../core/util.ts';
+import { formatCost, formatDate, formatDuration, formatTokens, sanitizeControlChars } from '../core/util.ts';
 import { countBySeverity } from '../diagnostics/rules.ts';
+import { havrinHome } from '../core/fs.ts';
+import path from 'node:path';
+
+/** Defense in depth: no free text reaches the terminal with control chars. */
+const safe = (text: string): string => sanitizeControlChars(text);
 
 const SEVERITY_LABEL: Record<Severity, string> = {
   high: 'HIGH',
@@ -46,7 +51,7 @@ class Painter {
 const ANSI_RE = /\u001b\[[0-9;]*m/g;
 
 function wrap(text: string, width: number, indent = ''): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = safe(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = '';
   // Indents may contain ANSI escapes; budget by visible width only.
@@ -108,7 +113,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   push(p.bold('ENVIRONMENT'));
   const detected = report.environment.agents.filter((a) => a.binaryPath ?? a.dataDir);
   if (detected.length === 0) {
-    push(p.yellow('  No supported coding agents detected (looked for OpenCode and Codex CLI).'));
+    push(p.yellow('  No supported coding agents detected (looked for OpenCode, Codex CLI, and Claude Code).'));
   }
   for (const agent of report.environment.agents) {
     if (!agent.binaryPath && !agent.dataDir) continue;
@@ -177,7 +182,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   const counts = countBySeverity(report.findings);
   push(p.bold(`FINDINGS (${report.findings.length})`) + p.dim(`  high ${counts.high} · medium ${counts.medium} · low ${counts.low}`));
   if (report.findings.length === 0 && c.sessionsAnalyzed > 0) {
-    push(p.green('  No issues matched the v0.1 diagnostic rules in the analyzed data.'));
+    push(p.green('  No issues matched the v0.2 diagnostic rules in the analyzed data.'));
     push(p.dim('  Rules are conservative; absence of findings is not a guarantee of optimality.'));
   }
   for (const f of report.findings) {
@@ -205,7 +210,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   push(p.dim('or credentials were transmitted or stored in this report. Original agent data'));
   push(p.dim('was opened read-only and never modified.'));
   if (report.mode === 'real') {
-    push(p.dim(`Report artifact: ~/.local/share/havrin/last-audit.json (havrin report --format json)`));
+    push(p.dim(`Report artifact: ${path.join(havrinHome(), 'last-audit.json')} (havrin report --format json)`));
   }
   push('');
   return out.join('\n');
@@ -221,7 +226,7 @@ function severityBadge(p: Painter, s: Severity): string {
 
 function renderFinding(f: Finding, p: Painter, width: number): string[] {
   const lines: string[] = [];
-  lines.push(`  ${severityBadge(p, f.severity)} ${p.bold(f.title)}`);
+  lines.push(`  ${severityBadge(p, f.severity)} ${p.bold(safe(f.title))}`);
   lines.push(p.dim(`         rule ${f.ruleId} · confidence ${f.confidence} · scope ${f.scope}${f.agent ? ' · ' + f.agent : ''}`));
   for (const e of f.evidence) {
     lines.push(...wrap('· ' + e.description, width, '         '));
@@ -234,7 +239,7 @@ function renderFinding(f: Finding, p: Painter, width: number): string[] {
 function renderRecommendation(r: Recommendation, index: number, p: Painter, width: number): string[] {
   const lines: string[] = [];
   const indent = '    ';
-  lines.push(p.bold(`  ${index}. ${r.what}`));
+  lines.push(p.bold(`  ${index}. ${safe(r.what)}`));
   const field = (label: string, text: string) => {
     lines.push(...labeled(p.dim(label + ' '), text, width, indent));
   };

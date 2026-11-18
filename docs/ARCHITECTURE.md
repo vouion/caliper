@@ -94,7 +94,7 @@ Adding an agent = one adapter + fixtures + registration in `ADAPTERS`. Layout pr
 - `isSidechain` records → `subagentStats {turns, toolCalls, toolErrors}`; undefined when the agent exposes no sidechain data. Sidechain user prompts are not counted as user turns.
 - `compact_boundary.compactMetadata.trigger` → compaction reason; model changes between assistant groups → model-switch events; `<synthetic>` model messages → assistant error markers (excluded from retry-loop counting).
 - MCP tools are named `mcp__<server>__<tool>`; project MCP config comes from `.mcp.json`. Global MCP config lives in `~/.claude.json`, which is **never opened** (account/auth data) — global Claude MCP servers are therefore out of scope.
-- `~/.claude.json` and `.credentials.json` are never opened. `CLAUDE_CONFIG_DIR` is honored (official Claude Code override), then `HAVRIN_CLAUDE_HOME` for tests.
+- `~/.claude.json` and `.credentials.json` are never opened. `HAVRIN_CLAUDE_HOME` (test override) takes precedence over `CLAUDE_CONFIG_DIR` (official Claude Code override), then `~/.claude`.
 - File naming: filename = sessionId (verified unique across 5,422 real files); defensive dedupe keeps the newest on collision. `updatedAt` is floored to integer ms because `Date.now()` truncates while `mtimeMs` is fractional (just-written files must not fall outside the audit window).
 
 These schemas are not stable contracts. Adapters parse defensively: malformed rows/lines produce `partial: true` + capped `parseWarnings`, never exceptions that abort an audit.
@@ -131,7 +131,7 @@ One recommendation per fired rule, with the eight mandated fields (what/why/chan
 
 State dir: `$HAVRIN_HOME` → `$XDG_DATA_HOME/havrin` → `~/.local/share/havrin`. Contains `last-audit.json` and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
 
-Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`), `HAVRIN_CLAUDE_HOME` (also honors `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
+Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`), `HAVRIN_CLAUDE_HOME` (takes precedence over `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
 
 ## Subprocess policy
 

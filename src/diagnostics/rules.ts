@@ -154,17 +154,23 @@ const retryLoops: Rule = {
       let maxConsecutiveErrors = 0;
       let retryTotal = 0;
       for (const ev of session.events) {
-        if (ev.kind !== 'assistant') continue;
-        // Synthetic placeholders (e.g. Claude Code "<synthetic>" no-response
-        // markers) are not real failures; counting them fabricates loops.
-        const realError = ev.error !== undefined && ev.error.type !== 'synthetic';
-        if (realError || (ev.retries ?? 0) > 0) {
+        if (ev.kind === 'assistant') {
+          // Synthetic placeholders (e.g. Claude Code "<synthetic>" no-response
+          // markers) are not real failures; counting them fabricates loops.
+          const realError = ev.error !== undefined && ev.error.type !== 'synthetic';
+          if (realError || (ev.retries ?? 0) > 0) {
+            consecutiveErrors++;
+            maxConsecutiveErrors = Math.max(maxConsecutiveErrors, consecutiveErrors);
+          } else {
+            consecutiveErrors = 0;
+          }
+          retryTotal += ev.retries ?? 0;
+        } else if (ev.kind === 'idle' && ev.error?.type === 'api_error') {
+          // Claude Code surfaces API errors as system/api_error records;
+          // they are real failure signals and must not be a dead path.
           consecutiveErrors++;
           maxConsecutiveErrors = Math.max(maxConsecutiveErrors, consecutiveErrors);
-        } else {
-          consecutiveErrors = 0;
         }
-        retryTotal += ev.retries ?? 0;
       }
       if (maxConsecutiveErrors >= 2) {
         evidence.push({
@@ -206,6 +212,7 @@ const retryLoops: Rule = {
  * The same file read ≥3 times in one session with no intervening write to
  * that file by the agent. Re-reading unchanged files wastes context tokens.
  * Only structured read tools are counted; shell `cat` is opaque by design.
+ * Interrupted/unknown-status reads are excluded (they returned no content).
  */
 const redundantFileReads: Rule = {
   id: 'redundant-file-reads',
@@ -219,7 +226,7 @@ const redundantFileReads: Rule = {
       for (const { tool } of iterTools(session)) {
         idx++;
         if (!tool.targetPath) continue;
-        if (isReadTool(tool.name) && tool.status !== 'error') {
+        if (isReadTool(tool.name) && tool.status === 'completed') {
           const list = reads.get(tool.targetPath) ?? [];
           list.push(idx);
           reads.set(tool.targetPath, list);

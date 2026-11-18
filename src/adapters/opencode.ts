@@ -20,9 +20,9 @@ import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall
 import { emptyTokens } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
-import { fingerprint, sanitizeErrorMessage } from '../core/util.ts';
+import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand } from '../core/classify.ts';
-import { isDirectory, isReadableFile, whichSync, xdgConfigHome, xdgDataHome } from '../core/fs.ts';
+import { isDirectory, isReadableFile, whichSync, xdgConfigHome, xdgDataHome, homeDir } from '../core/fs.ts';
 
 const MAX_PARSE_WARNINGS = 20;
 
@@ -140,13 +140,13 @@ function parseToolStatus(value: unknown): ToolStatus {
 function extractTargetPath(name: string, input: Record<string, unknown> | undefined): string | undefined {
   if (!input) return undefined;
   const lower = name.toLowerCase();
+  let raw: string | undefined;
   if (lower === 'read' || lower === 'write' || lower === 'edit' || lower === 'multiedit') {
-    return asString(input['path']) ?? asString(input['filePath']);
+    raw = asString(input['path']) ?? asString(input['filePath']);
+  } else if (lower === 'glob' || lower === 'grep') {
+    raw = asString(input['path']);
   }
-  if (lower === 'glob' || lower === 'grep') {
-    return asString(input['path']);
-  }
-  return undefined;
+  return raw !== undefined ? sanitizeControlChars(raw) : undefined;
 }
 
 function parseToolPart(part: Record<string, unknown>): ToolCall | undefined {
@@ -191,8 +191,8 @@ export class OpenCodeAdapter implements AgentAdapter {
     const issues: string[] = [];
     const binaryPath =
       whichSync('opencode') ??
-      (isReadableFile(path.join(process.env['HOME'] ?? '', '.opencode', 'bin', 'opencode'))
-        ? path.join(process.env['HOME'] ?? '', '.opencode', 'bin', 'opencode')
+      (isReadableFile(path.join(homeDir(), '.opencode', 'bin', 'opencode'))
+        ? path.join(homeDir(), '.opencode', 'bin', 'opencode')
         : undefined);
     const version = binaryPath ? probeVersion(binaryPath) : undefined;
     if (binaryPath && !version) issues.push('opencode binary found but --version failed');
@@ -275,7 +275,7 @@ export class OpenCodeAdapter implements AgentAdapter {
           signature: `${r.time_updated}:${r.version}`,
           directory: r.directory,
         };
-        if (r.title) meta.title = r.title.slice(0, 120);
+        if (r.title) meta.title = sanitizeFreeText(r.title, 120);
         return meta;
       });
     } finally {
@@ -367,7 +367,7 @@ export class OpenCodeAdapter implements AgentAdapter {
           signature: meta.signature,
         },
       };
-      if (row.title) record.title = row.title.slice(0, 120);
+      if (row.title) record.title = sanitizeFreeText(row.title, 120);
       if (row.directory) record.directory = row.directory;
       if (model) record.model = model;
       if (row.agent) record.agentName = row.agent;

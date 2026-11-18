@@ -14,17 +14,22 @@ export function fingerprint(value: unknown): string {
 }
 
 export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortValue(value)) ?? 'null';
+  return JSON.stringify(sortValue(value, 0)) ?? 'null';
 }
 
-function sortValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortValue);
+const MAX_CANONICAL_DEPTH = 256;
+
+function sortValue(value: unknown, depth: number): unknown {
+  // Depth cap: hostile/pathological inputs must not overflow the stack.
+  // Deep subtrees collapse to a stable marker (deterministic, content-free).
+  if (depth > MAX_CANONICAL_DEPTH) return '[deep]';
+  if (Array.isArray(value)) return value.map((v) => sortValue(v, depth + 1));
   if (value !== null && typeof value === 'object') {
     // Null-prototype target: untrusted JSON may carry own "__proto__" keys;
     // a plain {} assignment would mutate the prototype instead of the record.
     const out: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      out[key] = sortValue((value as Record<string, unknown>)[key]);
+      out[key] = sortValue((value as Record<string, unknown>)[key], depth + 1);
     }
     return out;
   }
@@ -59,6 +64,26 @@ const SECRET_KEY_RE =
 
 export function isSecretKey(key: string): boolean {
   return SECRET_KEY_RE.test(key);
+}
+
+/**
+ * Strip C0/C1 control characters (including ESC, BEL, CR, LF, CSI) from
+ * free text destined for terminal rendering. Titles and paths are
+ * attacker-influenceable (LLM-summarized titles, crafted filenames); raw
+ * escape sequences would enable terminal spoofing / OSC abuse.
+ * Tabs are preserved as single spaces for readability.
+ */
+export function sanitizeControlChars(text: string): string {
+  return text
+    .replace(/\t/g, ' ')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+}
+
+/** Safe free text for reports: control-free, secret-redacted, bounded. */
+export function sanitizeFreeText(text: string, max = 200): string {
+  const cleaned = sanitizeControlChars(text).replace(/\s+/g, ' ').trim();
+  const redacted = redactSecrets(cleaned);
+  return redacted.length > max ? redacted.slice(0, max) + '…' : redacted;
 }
 
 /** Parse relative durations like "30d", "12h", "90m", "7d12h" into ms. */

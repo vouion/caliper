@@ -28,7 +28,7 @@ function setup() {
 }
 
 function envFor(home: string): Record<string, string | undefined> {
-  return { HAVRIN_CLAUDE_HOME: home, CLAUDE_CONFIG_DIR: undefined };
+  return { HAVRIN_CLAUDE_HOME: home, CLAUDE_CONFIG_DIR: undefined, PATH: '' };
 }
 
 function ingest(home: string) {

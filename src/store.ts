@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import type { AgentId, AuditReport, SessionRecord } from './core/types.ts';
 import { havrinHome, writeJsonAtomic } from './core/fs.ts';
 import { errorMessage } from './core/errors.ts';
+import { isValidSessionRecord, isValidFinding, isValidRecommendation, isValidSessionSummary, isObj, isNum } from './core/validate.ts';
 
 const CACHE_SCHEMA_VERSION = 1;
 // Normalized records are content-free and small (~KB each); 2000 entries
@@ -39,19 +40,17 @@ export function loadCache(agent: AgentId): Map<string, { signature: string; reco
     }
     const out = new Map<string, { signature: string; record: SessionRecord }>();
     for (const [id, entry] of Object.entries(parsed.entries ?? {})) {
-      // Shape-validate: semantically corrupt entries must be dropped, not
-      // trusted into the pipeline (valid JSON ≠ valid cache).
+      // Deep shape-validation: semantically corrupt entries (valid JSON with
+      // malformed records/events) must be dropped, not trusted into the
+      // pipeline where they would crash aggregation.
       if (
-        entry !== null &&
-        typeof entry === 'object' &&
-        typeof entry.signature === 'string' &&
-        entry.record !== null &&
-        typeof entry.record === 'object' &&
-        typeof entry.record.id === 'string' &&
-        Array.isArray(entry.record.events) &&
-        typeof entry.record.updatedAt === 'number'
+        isObj(entry) &&
+        typeof entry['signature'] === 'string' &&
+        isValidSessionRecord(entry['record']) &&
+        entry['record'].id === id &&
+        entry['record'].agent === agent
       ) {
-        out.set(id, entry);
+        out.set(id, entry as { signature: string; record: SessionRecord });
       }
     }
     return out;
@@ -90,22 +89,22 @@ export function loadLastAudit(): AuditReport | undefined {
   try {
     const raw = fs.readFileSync(file, 'utf8');
     const parsed = JSON.parse(raw) as AuditReport;
-    // Minimal shape validation: a hand-edited or semantically corrupt
-    // artifact must not crash the renderer.
+    // Deep shape validation: a hand-edited or semantically corrupt artifact
+    // must produce a clear NO_AUDIT error, never a renderer crash.
     if (
       parsed.schemaVersion !== '1' ||
       (parsed.mode !== 'real' && parsed.mode !== 'demo') ||
+      !isNum(parsed.generatedAt) ||
       !Array.isArray(parsed.sessions) ||
+      !parsed.sessions.every(isValidSessionSummary) ||
       !Array.isArray(parsed.findings) ||
+      !parsed.findings.every(isValidFinding) ||
       !Array.isArray(parsed.recommendations) ||
-      parsed.environment === null ||
-      typeof parsed.environment !== 'object' ||
-      parsed.coverage === null ||
-      typeof parsed.coverage !== 'object' ||
-      parsed.totals === null ||
-      typeof parsed.totals !== 'object' ||
-      parsed.window === null ||
-      typeof parsed.window !== 'object'
+      !parsed.recommendations.every(isValidRecommendation) ||
+      !isObj(parsed.environment) ||
+      !isObj(parsed.coverage) ||
+      !isObj(parsed.totals) ||
+      !isObj(parsed.window)
     ) {
       return undefined;
     }

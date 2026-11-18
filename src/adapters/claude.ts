@@ -35,7 +35,7 @@ import type {
 } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
-import { fingerprint, sanitizeErrorMessage } from '../core/util.ts';
+import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
 
@@ -230,6 +230,7 @@ export class ClaudeAdapter implements AgentAdapter {
 
   listSessions(installation: AgentInstallation): SessionMeta[] {
     if (installation.layout !== 'jsonl-projects') return [];
+    transcriptPathById.clear();
     const files: string[] = [];
     walkTranscripts(claudeProjectsDir(), files);
     const metas: SessionMeta[] = [];
@@ -243,7 +244,8 @@ export class ClaudeAdapter implements AgentAdapter {
       }
       const id = path.basename(file, '.jsonl');
       const head = readHead(file);
-      const createdAt = Math.floor(head.at ?? stat.birthtimeMs ?? stat.mtimeMs);
+      const birthtime = stat.birthtimeMs > 0 ? stat.birthtimeMs : stat.mtimeMs;
+      const createdAt = Math.floor(head.at ?? birthtime);
       const meta: SessionMeta = {
         id,
         createdAt,
@@ -347,7 +349,11 @@ export class ClaudeAdapter implements AgentAdapter {
           const model = asString(message['model']);
           const synthetic = model === '<synthetic>';
           // Merge split records of one API message; usage counted once.
-          const key = asString(message['id']) ?? asString(rec['uuid']) ?? `line-${i}`;
+          const messageId = asString(message['id']);
+          if (!messageId) {
+            warn(`line ${i + 1}: assistant record without message.id; cannot dedup usage safely`);
+          }
+          const key = messageId ?? asString(rec['uuid']) ?? `line-${i}`;
           let group = groups.get(key);
           if (!group) {
             group = {
@@ -360,9 +366,20 @@ export class ClaudeAdapter implements AgentAdapter {
               synthetic,
             };
             if (model && !synthetic) group.model = model;
-            const usage = parseUsage(message['usage']);
-            if (usage) group.tokens = usage;
             groups.set(key, group);
+          }
+          const usage = parseUsage(message['usage']);
+          if (usage) {
+            if (!group.tokens) {
+              group.tokens = usage;
+            } else if (
+              group.tokens.input !== usage.input ||
+              group.tokens.output !== usage.output ||
+              group.tokens.cacheRead !== usage.cacheRead ||
+              group.tokens.cacheWrite !== usage.cacheWrite
+            ) {
+              warn(`line ${i + 1}: usage disagrees within message ${key}; keeping first reported usage`);
+            }
           }
           const content = Array.isArray(message['content']) ? message['content'] : [];
           for (const rawBlock of content) {
@@ -377,9 +394,10 @@ export class ClaudeAdapter implements AgentAdapter {
               const tid = asString(block['id']);
               if (tid) pending.id = tid;
               const inputRec = asRecord(input);
-              const filePath = asString(inputRec?.['file_path']);
+              const filePath =
+                asString(inputRec?.['file_path']) ?? asString(inputRec?.['notebook_path']);
               if (filePath && /^(Read|Edit|Write|MultiEdit|NotebookEdit)$/i.test(name)) {
-                pending.targetPath = filePath;
+                pending.targetPath = sanitizeControlChars(filePath);
               }
               if (name === 'Bash') {
                 const command = asString(inputRec?.['command']);
@@ -545,7 +563,7 @@ export class ClaudeAdapter implements AgentAdapter {
       parseWarnings: warnings,
       source: { kind: 'jsonl', location: file, signature: meta.signature },
     };
-    if (lastTitle) record.title = lastTitle.slice(0, 120);
+    if (lastTitle) record.title = sanitizeFreeText(lastTitle, 120);
     const dir = cwd ?? meta.directory;
     if (dir) record.directory = dir;
     if (lastModel) record.model = modelRef(lastModel);
@@ -560,9 +578,12 @@ export class ClaudeAdapter implements AgentAdapter {
       if (modelUsage) {
         const totals = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 };
         let any = false;
-        for (const entry of Object.values(modelUsage)) {
+        for (const [modelName, entry] of Object.entries(modelUsage)) {
           const u = asRecord(entry);
-          if (!u) continue;
+          if (!u) {
+            warn(`cost-state: malformed modelUsage entry for ${modelName}; totals may be incomplete`);
+            continue;
+          }
           any = true;
           totals.input += asNumber(u['inputTokens']) ?? 0;
           totals.output += asNumber(u['outputTokens']) ?? 0;
@@ -573,12 +594,14 @@ export class ClaudeAdapter implements AgentAdapter {
         if (any) record.reportedTotals = totals;
       }
       // hasUnknownModelCost means the dollar figure is incomplete — do not
-      // present it as a reliable total.
+      // present it as a reliable total. Any truthy value suppresses.
       const cost = asNumber(lastCostState['totalCostUSD']);
-      if (cost !== undefined && lastCostState['hasUnknownModelCost'] !== true) {
+      if (cost !== undefined && !lastCostState['hasUnknownModelCost']) {
         record.reportedCost = cost;
       }
     }
+    // late warnings (e.g. cost-state) must be reflected in the record
+    record.partial = partial;
     return record;
   }
 
@@ -600,9 +623,16 @@ export class ClaudeAdapter implements AgentAdapter {
   private findTranscript(id: string): string | undefined {
     const files: string[] = [];
     walkTranscripts(claudeProjectsDir(), files);
+    let best: { file: string; mtime: number } | undefined;
     for (const file of files) {
-      if (path.basename(file, '.jsonl') === id) return file;
+      if (path.basename(file, '.jsonl') !== id) continue;
+      try {
+        const mtime = fs.statSync(file).mtimeMs;
+        if (!best || mtime > best.mtime) best = { file, mtime };
+      } catch {
+        /* skip unreadable */
+      }
     }
-    return undefined;
+    return best?.file;
   }
 }

@@ -90,7 +90,7 @@ test('opencode ingest: full session with tools, tokens, errors, compaction', () 
   insertFixtureMessage(db, 'ses_test1', 'model-switched', { time: { created: NOW + 5000 }, previous: { id: 'm0', providerID: 'p1' }, model: { id: 'm1', providerID: 'p1' } }, NOW + 5000);
   db.close();
 
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir }, () => {
+  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     assert.equal(inst.layout, 'sqlite-v2');
@@ -132,7 +132,7 @@ test('opencode ingest: malformed message rows produce partial record, not crash'
   insertFixtureMessage(db, 'ses_bad', 'assistant', assistantData({ at: NOW + 2, tools: [{ type: 'tool' }] }), NOW + 2);
   insertFixtureMessage(db, 'ses_bad', 'user', { time: { created: NOW + 3 }, text: 'ok' }, NOW + 3);
   db.close();
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir }, () => {
+  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     const metas = adapter.listSessions(inst);
@@ -150,7 +150,7 @@ test('opencode: archived sessions are excluded; windowing uses updatedAt', () =>
   insertFixtureSession(db, { id: 'ses_active', createdAt: NOW, updatedAt: NOW + 10 });
   insertFixtureSession(db, { id: 'ses_archived', createdAt: NOW, updatedAt: NOW + 20, archived: true });
   db.close();
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir }, () => {
+  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     assert.equal(inst.sessionCount, 1);
@@ -167,7 +167,7 @@ test('opencode: source database is never modified by ingestion', () => {
   db.close();
   const dbPath = path.join(dataDir, 'opencode.db');
   const before = fs.readFileSync(dbPath);
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir }, () => {
+  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     const metas = adapter.listSessions(inst);
@@ -185,7 +185,7 @@ test('opencode: populated session_part table raises a forward-compat warning', (
     'INSERT INTO session_part (message_id, session_id, ordinal, type, time_created, time_updated, data) VALUES (?, ?, 0, ?, ?, ?, ?)',
   ).run('m1', 'ses_parts', 'tool', NOW, NOW, '{}');
   db.close();
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir }, () => {
+  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const inst = new OpenCodeAdapter().detect();
     assert.ok(inst.issues.some((i) => i.includes('session_part')));
   });
