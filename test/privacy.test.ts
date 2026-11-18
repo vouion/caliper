@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import { runAudit } from '../src/audit.ts';
+import { buildFixPrompt } from '../src/optimize/prompt.ts';
 import {
   tempDir,
   cleanup,
@@ -143,6 +144,37 @@ test('state files are written with restrictive permissions', () => {
       runAudit({ sinceMs: 86_400_000 });
       const mode = fs.statSync(path.join(s.dir, 'caliper-state', 'last-audit.json')).mode & 0o777;
       assert.equal(mode, 0o600);
+    },
+  );
+  cleanup(s.dir);
+});
+
+test('fix prompt contains no secrets, user text, tool output, or raw input', () => {
+  const s = setup();
+  withEnv(
+    {
+      CALIPER_HOME: path.join(s.dir, 'caliper-state'),
+      CALIPER_OPENCODE_DATA_DIR: s.dataDir,
+      CALIPER_OPENCODE_CONFIG_DIR: s.ocConfig,
+      CALIPER_CODEX_HOME: s.codexHome,
+      CALIPER_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
+      CODEX_HOME: undefined,
+      CLAUDE_CONFIG_DIR: undefined,
+      HOME: s.home,
+      USERPROFILE: s.home,
+      XDG_CONFIG_HOME: path.join(s.home, '.config'),
+    },
+    () => {
+      const { report } = runAudit({ sinceMs: 86_400_000 });
+      assert.ok(report.recommendations.length > 0);
+      // The generated prompt (default + every agent tailoring) must obey the
+      // same content-free contract as the report itself.
+      for (const agent of ['generic', 'opencode', 'codex', 'claude'] as const) {
+        const prompt = buildFixPrompt(report, { agent });
+        for (const secret of SECRETS) {
+          assert.ok(!prompt.includes(secret), `prompt (${agent}) leaked: ${secret}`);
+        }
+      }
     },
   );
   cleanup(s.dir);

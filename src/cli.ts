@@ -4,14 +4,16 @@
  * Exit codes: 0 success · 1 runtime failure (or doctor found failures) · 2 usage error.
  */
 import { parseArgs } from 'node:util';
-import type { AgentId } from './core/types.ts';
+import fs from 'node:fs';
+import type { AgentId, Severity } from './core/types.ts';
 import { CaliperError, errorMessage } from './core/errors.ts';
-import { parseDuration } from './core/util.ts';
+import { parseDuration, plural } from './core/util.ts';
 import { readJsonFile } from './core/fs.ts';
 import { runAudit, DEFAULT_SINCE_MS, DEFAULT_LIMIT } from './audit.ts';
 import { runDoctor } from './doctor.ts';
 import { runDemoAudit } from './demo/dataset.ts';
 import { loadLastAudit } from './store.ts';
+import { buildFixPrompt, selectRecommendations, type PromptAgent } from './optimize/prompt.ts';
 import { renderTerminal, shouldUseColor } from './report/terminal.ts';
 import { createExperiment, runExperiment } from './experiment/runner.ts';
 import { listExperiments, loadExperiment } from './experiment/store.ts';
@@ -29,6 +31,7 @@ COMMANDS
   doctor              Check runtime, agent installs, and session storage health
   audit               Analyze agent sessions + environment; print findings & recommendations
   report              Re-render the last audit (default: terminal)
+  prompt              Generate an agent-ready prompt to apply the audit's fixes
   demo                Run the audit on clearly-labeled synthetic data
   experiment          Reproducible configuration experiments (see below)
   help                Show this help
@@ -58,6 +61,14 @@ AUDIT OPTIONS
 REPORT OPTIONS
   --format <fmt>      json | terminal (default terminal; --json is an alias)
 
+PROMPT OPTIONS
+  --agent <id>        Tailor instruction-file refs: generic | opencode | codex | claude
+                      (default generic)
+  --min-severity <s>  Include fixes at or above: low | medium | high (default low)
+  --output <file>     Write the prompt to a file instead of stdout
+  --demo              Build from synthetic demo data (no saved audit needed)
+  --json              Emit { agent, minSeverity, recommendationCount, prompt, ... }
+
 GLOBAL OPTIONS
   --no-color          Disable ANSI colors (also honors NO_COLOR)
   --help, --version
@@ -72,6 +83,8 @@ EXAMPLES
   caliper audit --since 7d
   caliper audit --agent opencode --json > audit.json
   caliper report --format json
+  caliper prompt --agent claude --output fix.md
+  caliper prompt --demo
   caliper demo
 `;
 
@@ -95,6 +108,9 @@ function parse(argv: string[]): Parsed {
         format: { type: 'string' },
         'no-cache': { type: 'boolean', default: false },
         project: { type: 'string' },
+        'min-severity': { type: 'string' },
+        output: { type: 'string' },
+        demo: { type: 'boolean', default: false },
         'no-color': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
@@ -233,6 +249,55 @@ function main(argv: string[]): number | Promise<number> {
         process.stdout.write(JSON.stringify(report, null, 2) + '\n');
       } else {
         process.stdout.write(renderTerminal(report, { color }));
+      }
+      return 0;
+    }
+
+    case 'prompt': {
+      // The shared --agent option is repeatable (for audit); prompt uses the first.
+      const agentRaw = Array.isArray(values['agent']) ? (values['agent'] as string[])[0] : undefined;
+      let agent: PromptAgent = 'generic';
+      if (agentRaw !== undefined) {
+        if (agentRaw !== 'generic' && agentRaw !== 'opencode' && agentRaw !== 'codex' && agentRaw !== 'claude') {
+          throw new CaliperError('USAGE', `Unknown prompt agent: ${agentRaw}`, 'Supported: generic, opencode, codex, claude');
+        }
+        agent = agentRaw;
+      }
+      const sevRaw = wantString(values, 'min-severity') ?? 'low';
+      if (sevRaw !== 'low' && sevRaw !== 'medium' && sevRaw !== 'high' && sevRaw !== 'info') {
+        throw new CaliperError('USAGE', `Invalid --min-severity: ${sevRaw}`, 'Use low, medium, or high.');
+      }
+      const minSeverity = sevRaw as Severity;
+
+      const report = values['demo'] === true ? runDemoAudit() : loadLastAudit();
+      if (!report) {
+        throw new CaliperError('NO_AUDIT', 'No saved audit found.', 'Run caliper audit first, or use caliper prompt --demo for synthetic data.');
+      }
+      const prompt = buildFixPrompt(report, { agent, minSeverity });
+      const recommendationCount = selectRecommendations(report, minSeverity).length;
+      const output = wantString(values, 'output');
+      if (output !== undefined) {
+        try {
+          fs.writeFileSync(output, prompt, 'utf8');
+        } catch (err) {
+          throw new CaliperError('IO', `Could not write prompt to ${output}: ${errorMessage(err)}`);
+        }
+      }
+      if (values['json']) {
+        const payload = {
+          agent,
+          minSeverity,
+          mode: report.mode,
+          findingCount: report.findings.length,
+          recommendationCount,
+          ...(output !== undefined ? { output } : {}),
+          prompt,
+        };
+        process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+      } else if (output !== undefined) {
+        process.stdout.write(`Wrote prompt to ${output} (${plural(recommendationCount, 'recommendation')}, agent ${agent}).\n`);
+      } else {
+        process.stdout.write(prompt);
       }
       return 0;
     }

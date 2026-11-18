@@ -46,6 +46,7 @@ src/
     rules.ts           Eight pure rules + engine (thresholds documented per rule)
   optimize/
     recommend.ts       Finding → 8-field recommendation templates (tested: false)
+    prompt.ts          Deterministic agent-ready fix prompt (caliper prompt; zero-LLM)
   experiment/          EXPERIMENTATION engine (v0.3)
     types.ts           Benchmark/config/trial/verdict model + availability contract
     validate.ts        Strict benchmark/config validation (untrusted user input)
@@ -139,6 +140,10 @@ Rules are pure functions `(sessions, environment) → Finding[]`. Thresholds are
 
 One recommendation per fired rule, with the eight mandated fields (what/why/change/evidence/tested/benefits+tradeoffs/apply/rollback). Audit recommendations are observational (`tested: false`); only an experiment verdict of `verified-improvement` represents a proven improvement (see Recommendation lifecycle states). Apply steps are manual; rollback is always described. No auto-apply exists.
 
+### Fix prompts
+
+`caliper prompt` (`src/optimize/prompt.ts`) renders the last audit into a single provider-agnostic prompt the user pastes into their own agent to apply the fixes. It is a pure, deterministic function of the normalized report — zero LLM, no network. `selectRecommendations` filters by a minimum severity (derived from each recommendation's linked findings) and sorts descending; `buildFixPrompt` emits operating rules (reversible changes, secret hygiene, test verification, no weakening tests, rollback changelog), the prioritized fixes with evidence/apply/rollback/trade-offs, agent-specific instruction-file references (`--agent generic|opencode|codex|claude`), and a definition of done. The prompt obeys the same content-free contract as the report (sentinel-tested in `test/privacy.test.ts`); it never includes raw session content or secret values. `--demo` builds from synthetic data without persisting an artifact; `--output` writes a file; `--json` emits a structured payload. Caliper still applies nothing itself — the user's agent acts and the user verifies.
+
 ### Reports
 
 - Terminal: width-aware wrapping, severity badges, `NO_COLOR`/`FORCE_COLOR`/TTY handling.
@@ -183,11 +188,12 @@ Recommendation states: `proposed → ready-for-testing → experiment-running �
 
 ## CLI contract
 
-- Commands: `doctor`, `audit`, `report`, `demo`, `experiment {list|create|run|report|inspect|demo}`, `help`, `version`.
+- Commands: `doctor`, `audit`, `report`, `prompt`, `demo`, `experiment {list|create|run|report|inspect|demo}`, `help`, `version`.
 - Exit codes: `0` success (including "no data" audits, which explain themselves), `1` runtime failure / doctor failures, `2` usage error (including missing experiment approval).
 - Structured errors: `error[CODE]: message` + `hint:` on stderr. Parser exception messages are never propagated (they can embed source content).
 - `audit` flags: `--agent opencode|codex|claude` (repeatable), `--since <dur>`, `--all` (mutually exclusive with `--since`), `--limit <1..1000>`, `--no-cache`, `--project <dir>`, `--json`.
 - `report` flags: `--format json|terminal`; `--json` is an alias for `--format json`.
+- `prompt` flags: `--agent generic|opencode|codex|claude`, `--min-severity low|medium|high`, `--output <file>`, `--demo`, `--json`. Uses the last saved audit (`NO_AUDIT` if none); `--demo` builds from synthetic data without persisting.
 - `experiment create` flags: `--benchmark <ref>`, `--baseline <file>`, `--candidate <file>` (repeatable), `--trials <1..20>`, `--seed <n>`, `--recommendation <id>` (repeatable).
 - `experiment run` flags: `--approve-inference`, `--allow-unverified`, `--dry-run`, `--keep-workspaces`, `--timeout <ms>`.
 - Coverage accounting: `discovered = analyzed + skippedWindow + skippedLimit + failedReads`.
@@ -207,7 +213,7 @@ Two bounded surfaces:
 
 ## Testing
 
-`node:test` (no framework dependency): 183 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three session adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type), and the experimentation engine (create validation, full mock lifecycle, approval gates, dry-run, seeded order reproducibility, workspace isolation incl. git sources, failure/timeout honesty, interrupt recovery, live-lock duplicate protection, source-fingerprint integrity, verdict boundary tests, test-stats parsing, recommendation linking, registry privacy).
+`node:test` (no framework dependency): 201 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three session adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type), and the experimentation engine (create validation, full mock lifecycle, approval gates, dry-run, seeded order reproducibility, workspace isolation incl. git sources, failure/timeout honesty, interrupt recovery, live-lock duplicate protection, source-fingerprint integrity, verdict boundary tests, test-stats parsing, recommendation linking, registry privacy), and fix-prompt generation (severity filtering + descending order, agent tailoring, empty/threshold cases, full-history window labeling, CLI flags + NO_AUDIT + demo non-persistence, and the content-free contract over real secret-bearing fixtures).
 
 Real-world integration verified separately against installed OpenCode 2.3.1 (258 sessions), Codex 0.169.1 (25 rollouts), and Claude Code 2.1.327 (5,422 transcripts, 1.81 GB): discovery, ingestion, diagnostics, caching, and benchmarking (see README performance table). Experiment execution backends: OpenCode interface verified against `opencode run --help` (v2.3.1); live paid runs are approval-gated and have not been executed by the maintainers as of this release. Codex/Claude execution is implemented but explicitly unverified.
 

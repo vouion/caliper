@@ -4,6 +4,10 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node >= 22.13](https://img.shields.io/badge/node-%3E%3D22.13-339933.svg)](https://nodejs.org)
 
+<p align="center">
+  <img src="assets/social-preview.png" alt="Caliper by Havrin — the evidence-driven optimization engine for AI development" width="100%" />
+</p>
+
 **The open-source optimization engine for AI-powered development.**
 
 Caliper analyzes how you actually work with AI coding agents, finds evidence-backed inefficiencies in your sessions and configuration, and tells you what to change — without sending your data anywhere, and without needing an LLM.
@@ -54,11 +58,13 @@ Every finding carries supporting evidence, a confidence level, consequences, and
 Requires **Node.js ≥ 22.13** (uses the built-in SQLite module; no native dependencies).
 
 ```sh
-npm install -g caliper        # once published
-# or from source:
+# From source (works today):
 git clone https://github.com/vouion/caliper && cd caliper
 npm install && npm run build
 npm link                     # puts `caliper` on your PATH
+
+# From npm (registry publish pending account 2FA — see the v0.3.0 release notes):
+npm install -g @vouion/caliper
 ```
 
 Runtime dependencies: exactly one (`smol-toml`, BSD-3-Clause, for Codex config parsing). Everything else is Node built-ins.
@@ -71,6 +77,7 @@ caliper audit                       # analyze the last 30 days, all agents
 caliper audit --since 7d --agent claude
 caliper audit --json > audit.json   # machine-readable output
 caliper report --format json        # re-render the last saved audit
+caliper prompt --agent claude --output fix.md   # agent-ready prompt to apply the fixes
 caliper demo                        # synthetic dataset — no personal data needed
 ```
 
@@ -103,6 +110,7 @@ Session schemas are version-sensitive. Caliper probes the layout before reading,
 | Environment scan: configs, MCP servers, skills, instruction files | ✅ |
 | 8 deterministic diagnostic rules with evidence + confidence, across all three agents | ✅ |
 | Recommendations with lifecycle states linked to experiments | ✅ |
+| Agent-ready fix prompts (`caliper prompt`) — provider-agnostic, content-free | ✅ |
 | **Experimentation engine**: reproducible baseline-vs-candidate comparisons | ✅ |
 | Isolated trial workspaces, seeded execution order, multi-trial repetition | ✅ |
 | Deterministic correctness verification (Caliper runs the tests, not the agent) | ✅ |
@@ -114,6 +122,28 @@ Session schemas are version-sensitive. Caliper probes the layout before reading,
 | Software discovery, auto-apply, leaderboards | 🗺 roadmap — **not implemented** |
 
 Audit recommendations are **observational, not experimentally verified** (`tested: false`). Only an experiment verdict of `verified-improvement` represents a proven improvement — and that requires ≥5 trials with a large effect. Caliper never applies changes for you.
+
+## Generate a fix prompt
+
+`caliper prompt` turns the last audit into a single, ready-to-paste prompt that instructs **your own coding agent** to apply the fixes — closing the loop from diagnosis to action while keeping Caliper itself hands-off (no auto-apply).
+
+```sh
+caliper audit                                  # diagnose first
+caliper prompt                                 # print the prompt (generic agent)
+caliper prompt --agent claude --output fix.md  # tailor to Claude Code, save to a file
+caliper prompt --min-severity high             # only high-severity fixes
+caliper prompt --json                          # structured { prompt, recommendationCount, ... }
+caliper prompt --demo                          # try it on synthetic data, no audit needed
+```
+
+The prompt is **deterministic and zero-LLM** — templated from the same content-free model as the report. It contains:
+
+- **Operating rules** for the agent: minimal reversible changes, back up configs, never print/commit/transmit secrets, verify with tests, never weaken tests, and write a rollback changelog.
+- **Prioritized fixes** (highest severity first), each with the evidence, concrete apply steps, rollback, and trade-offs — plus an honest `observational (not experimentally verified)` label.
+- **Agent tailoring** (`--agent generic|opencode|codex|claude`) so durable instruction changes land in the right file (e.g. `CLAUDE.md` vs `AGENTS.md`).
+- A **definition of done** so the agent reports what it changed and how to undo it.
+
+It carries findings, evidence pointers, and instructions — never raw session content or secret values. Pasting it into a cloud agent is your explicit choice; Caliper itself transmits nothing. After the agent applies the fixes, re-run `caliper audit` to confirm the findings dropped, and use an experiment to verify any change that matters.
 
 ## Experiments
 
@@ -201,7 +231,7 @@ Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ```sh
 npm install
-npm test          # node:test suite (183 tests), no test framework dependency
+npm test          # node:test suite (201 tests), no test framework dependency
 npm run typecheck
 npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source

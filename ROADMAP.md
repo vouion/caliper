@@ -81,6 +81,7 @@ The observe → diagnose → **experiment → verify** loop, with correctness-fi
 
 ## v0.6+ — Optimization loop 🗺
 
+- ✅ Agent-ready fix-prompt generation (`caliper prompt`) shipped early: Caliper generates evidence-backed instructions; your own agent applies them with your consent. Caliper itself still applies nothing.
 - 🗺 Consent-gated apply with preserved originals and safe rollback
 - 🗺 Verify-on-real-work: post-change observation windows with statistical caution
 - 🗺 Community benchmark suites, optional public leaderboards (opt-in, privacy-reviewed)
