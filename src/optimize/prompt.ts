@@ -8,11 +8,14 @@
  * and the user verifies (tests + re-audit).
  *
  * Deterministic and zero-LLM: the prompt is templated from the content-free
- * normalized model. It contains findings, evidence pointers, and apply/rollback
- * steps — never raw session content. Pasting it into a cloud agent is the
- * user's explicit choice; Caliper itself transmits nothing.
+ * normalized model. It lists the detected findings (title, evidence, impact) and
+ * the prioritized recommendations (apply/rollback steps). Like reports, finding
+ * titles may contain session titles — the sole disclosed free-text exception
+ * (truncated); no message text, tool output, or raw tool input is ever included.
+ * Pasting it into a cloud agent is the user's explicit choice; Caliper itself
+ * transmits nothing.
  */
-import type { AuditReport, Recommendation, Severity } from '../core/types.ts';
+import type { AuditReport, Finding, Recommendation, Severity } from '../core/types.ts';
 import { formatDate, formatDuration, plural } from '../core/util.ts';
 
 export type PromptAgent = 'generic' | 'opencode' | 'codex' | 'claude';
@@ -53,6 +56,13 @@ export function selectRecommendations(report: AuditReport, minSeverity: Severity
   return out.sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
 }
 
+/** Findings at or above the threshold, highest severity first. */
+export function selectFindings(report: AuditReport, minSeverity: Severity): Finding[] {
+  return report.findings
+    .filter((f) => SEVERITY_RANK[f.severity] >= SEVERITY_RANK[minSeverity])
+    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
+}
+
 export function buildFixPrompt(report: AuditReport, opts: FixPromptOptions = {}): string {
   const agent = opts.agent ?? 'generic';
   const minSeverity = opts.minSeverity ?? 'low';
@@ -88,6 +98,29 @@ export function buildFixPrompt(report: AuditReport, opts: FixPromptOptions = {})
   lines.push(`- Sessions analyzed: ${report.coverage.sessionsAnalyzed}`);
   lines.push(`- Findings: ${report.findings.length} (high ${counts.high}, medium ${counts.medium}, low ${counts.low})`);
   lines.push(`- This prompt includes fixes at severity ≥ ${minSeverity}: ${plural(selected.length, 'recommendation')}.`);
+  lines.push('- Privacy: derived from a local, content-free audit (metrics, paths, evidence pointers); it may include session titles, which are user-derived free text. Caliper transmitted nothing.');
+  lines.push('');
+
+  // Detected issues — the specific findings, so the prompt is formed around what
+  // Caliper actually found in this environment, not just generic fix templates.
+  const findings = selectFindings(report, minSeverity);
+  lines.push('## Detected issues');
+  lines.push('');
+  if (report.findings.length === 0) {
+    lines.push('No issues were detected in the analyzed data.');
+  } else if (findings.length === 0) {
+    lines.push(`No issues at severity ≥ ${minSeverity}. Lower-severity findings exist; review them with \`caliper audit\` if desired.`);
+  } else {
+    lines.push('The specific problems Caliper detected in your sessions and configuration. The prioritized fixes below address these.');
+    lines.push('');
+    findings.forEach((f, n) => {
+      const meta = [`rule \`${f.ruleId}\``, `confidence ${f.confidence}`, `scope ${f.scope}`];
+      if (f.agent) meta.push(f.agent);
+      lines.push(`${n + 1}. **[${f.severity.toUpperCase()}] ${f.title}** — ${meta.join(' · ')}`);
+      for (const e of f.evidence.slice(0, 5)) lines.push(`   - ${e.description}`);
+      lines.push(`   Impact: ${f.consequence}`);
+    });
+  }
   lines.push('');
 
   if (selected.length === 0) {

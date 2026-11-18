@@ -5,6 +5,11 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.3 — Fix prompt centered on detected issues (2026-11-18)
+
+### Changed
+- `caliper prompt` now leads with a **Detected issues** section listing the actual findings (severity, title, rule, confidence, scope/agent, evidence, impact) before the prioritized fixes, so the prompt is formed around what Caliper found in your environment — not just generic fix templates. Findings are filtered by `--min-severity` and sorted highest-first. Adds a privacy note (the prompt may include session titles, the same disclosed free-text exception as reports).
+
 ## 0.4.2 — Reliable acceptance-check output capture (2026-11-18)
 
 ### Fixed

@@ -97,6 +97,32 @@ test('prompt: full-history window is labeled, not rendered as decades', () => {
   assert.ok(prompt.includes('window: full history'));
 });
 
+test('prompt: Detected issues section is formed around the actual findings', () => {
+  const report = runDemoAudit();
+  const prompt = buildFixPrompt(report);
+  assert.ok(prompt.includes('## Detected issues'));
+  // Every finding is represented with its title, rule, evidence, and impact.
+  for (const f of report.findings) {
+    assert.ok(prompt.includes(f.title), `missing finding title: ${f.title}`);
+    assert.ok(prompt.includes(f.ruleId), `missing rule: ${f.ruleId}`);
+  }
+  assert.ok(prompt.includes('Impact:'));
+  assert.ok(prompt.includes('confidence'));
+  // Detected issues precedes the fixes that address them.
+  assert.ok(prompt.indexOf('## Detected issues') < prompt.indexOf('## Prioritized fixes'));
+});
+
+test('prompt: Detected issues respects the severity threshold', () => {
+  const report = runDemoAudit();
+  const prompt = buildFixPrompt(report, { minSeverity: 'high' });
+  const section = prompt.split('## Detected issues')[1]!.split('## ')[0]!;
+  const high = report.findings.filter((f) => f.severity === 'high');
+  const low = report.findings.filter((f) => f.severity === 'low');
+  assert.ok(high.length > 0 && low.length > 0);
+  for (const f of high) assert.ok(section.includes(f.title), `missing high finding: ${f.title}`);
+  for (const f of low) assert.ok(!section.includes(f.title), `low finding leaked into high-only prompt: ${f.title}`);
+});
+
 // ---------------------------------------------------------------------------
 // CLI integration
 // ---------------------------------------------------------------------------
