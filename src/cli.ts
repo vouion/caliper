@@ -281,8 +281,9 @@ async function experimentCommand(
         return 0;
       }
       process.stdout.write('EXPERIMENTS\n');
+      process.stdout.write(`  ${'ID'.padEnd(28)}${'STATUS'.padEnd(12)}${'BENCHMARK'.padEnd(22)}TRIALS\n`);
       for (const e of entries) {
-        process.stdout.write(`  ${e.id}  ${e.status.padEnd(12)} ${e.benchmarkId.padEnd(20)} trials:${e.trials}\n`);
+        process.stdout.write(`  ${e.id.padEnd(28)}${e.status.padEnd(12)}${e.benchmarkId.padEnd(22)}${String(e.trials).padStart(6)}\n`);
       }
       return 0;
     }

@@ -125,6 +125,11 @@ export function formatTokens(n: number): string {
   return String(n);
 }
 
+/** "1 turn" / "2 turns" — correct singular/plural for count nouns. */
+export function plural(n: number, singular: string, pluralForm?: string): string {
+  return `${n} ${n === 1 ? singular : (pluralForm ?? singular + 's')}`;
+}
+
 export function formatCost(cost: number): string {
   if (cost === 0) return '$0.00';
   if (cost < 0.01) return `$${cost.toFixed(4)}`;

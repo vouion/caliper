@@ -116,7 +116,7 @@ function comparePair(base: ConfigAggregate, cand: ConfigAggregate, n: number): P
   const srC = cand.successRate ?? 0;
 
   if (n < MIN_TRIALS_PRELIMINARY) {
-    reasons.push(`Only ${n} trial(s) per configuration — below the minimum of ${MIN_TRIALS_PRELIMINARY} for any claim.`);
+    reasons.push(`Only ${n} ${n === 1 ? 'trial' : 'trials'} per configuration — below the minimum of ${MIN_TRIALS_PRELIMINARY} for any claim.`);
     return { winner: null, basis: 'none', confidence: 'inconclusive', reasons, tradeoffs };
   }
 

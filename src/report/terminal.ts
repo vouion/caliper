@@ -4,7 +4,7 @@
  * it renders only what the normalized model carries.
  */
 import type { AuditReport, Finding, Recommendation, Severity } from '../core/types.ts';
-import { formatCost, formatDate, formatDuration, formatTokens, sanitizeControlChars } from '../core/util.ts';
+import { formatCost, formatDate, formatDuration, formatTokens, sanitizeControlChars, plural } from '../core/util.ts';
 import { countBySeverity } from '../diagnostics/rules.ts';
 import { caliperHome } from '../core/fs.ts';
 import path from 'node:path';
@@ -172,7 +172,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
       }
     }
     if (sawSub) {
-      push(`  subagents (sidechains): ${subTurns} turns · ${subTools} tool calls (${subErrors} errors)`);
+      push(`  subagents (sidechains): ${plural(subTurns, 'turn')} · ${plural(subTools, 'tool call')} (${plural(subErrors, 'error')})`);
     }
     if (t.cost === 0) push(p.dim('  cost is agent-reported; $0.00 may mean pricing was unavailable, not free usage.'));
     push('');

@@ -10,6 +10,11 @@ function pad(text: string, width: number): string {
   return text + ' '.repeat(Math.max(0, width - visible.length));
 }
 
+function padLeft(text: string, width: number): string {
+  const visible = text.replace(/\u001b\[[0-9;]*m/g, '');
+  return ' '.repeat(Math.max(0, width - visible.length)) + text;
+}
+
 export function renderExperimentTerminal(
   record: ExperimentRecord,
   comparison: ExperimentComparison,
@@ -34,27 +39,29 @@ export function renderExperimentTerminal(
   for (const config of record.configs) {
     const role = config.id === record.baselineConfigId ? 'baseline' : 'candidate';
     const bits = [config.agent, config.model, config.agentName].filter(Boolean).join(' · ');
-    push(`  ${p.bold(safe(config.label))} ${p.dim(`(${role})`)} — ${bits || config.agent}`);
-    if (config.instructions) push(p.dim(`    instructions variant: "${safe(config.instructions).slice(0, 80)}${config.instructions.length > 80 ? '…' : ''}"`));
+    push(`  ${p.bold(safe(config.id))} ${p.dim(`(${role})`)} — ${safe(config.label)} · ${bits || config.agent}`);
+    if (config.instructions) push(p.dim(`    instructions: "${safe(config.instructions).slice(0, 80)}${config.instructions.length > 80 ? '…' : ''}"`));
   }
   push(p.dim(`  trials/config: ${record.trialsPerConfig} · order seed: ${record.orderSeed} · timeout: ${formatDuration(record.benchmark.limits.timeoutMs)}`));
   push('');
 
-  // Comparison table
+  // Comparison table — short config-id headers, right-aligned numbers.
   const aggs = comparison.aggregates;
-  const labelW = 22;
-  const colW = Math.max(14, Math.min(20, Math.floor((width - labelW - 4) / Math.max(1, aggs.length))));
+  const isBase = (id: string) => id === record.baselineConfigId;
+  const headers = aggs.map((a) => safe(a.configId) + (isBase(a.configId) ? '*' : ''));
+  const labelW = 18;
+  let colW = Math.max(10, ...headers.map((h) => h.length)) + 2;
+  while (2 + labelW + aggs.length * colW > width && colW > 10) colW--;
+  const fitHeader = (h: string) => (h.length > colW ? h.slice(0, Math.max(1, colW - 1)) + '…' : h);
+
   push(p.bold('RESULTS'));
-  let header = pad('', labelW);
-  for (const a of aggs) header += pad(safe(a.label).slice(0, colW - 1), colW);
+  let header = pad('Metric', labelW);
+  for (const h of headers) header += padLeft(fitHeader(h), colW);
   push('  ' + p.bold(header));
 
   const row = (label: string, values: string[]) => {
     let line = pad(label, labelW);
-    values.forEach((v, i) => {
-      line += pad(v, colW);
-      void i;
-    });
+    for (const v of values) line += padLeft(v, colW);
     push('  ' + line);
   };
 
@@ -70,7 +77,7 @@ export function renderExperimentTerminal(
   row('Test failures', aggs.map((a) => (a.testFailures === null ? '—' : String(a.testFailures))));
   row('Timeouts', aggs.map((a) => String(a.timeouts)));
   row('Exec errors', aggs.map((a) => String(a.errors)));
-  push(p.dim('  — = unavailable (not zero). Cost is agent-reported; tokens are per-trial sums.'));
+  push(p.dim('  * baseline · — = unavailable (not zero) · cost is agent-reported · tokens are per-trial sums'));
   push('');
 
   // Verdict

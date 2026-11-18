@@ -130,7 +130,8 @@ caliper experiment create \
 caliper experiment run <id> --dry-run          # preview the trial plan
 caliper experiment run <id> --approve-inference  # real agents: explicit approval required
 caliper experiment report <id> --format json
-caliper experiment list | inspect <id>
+caliper experiment list
+caliper experiment inspect <id>
 ```
 
 A benchmark defines the starting repository state, task prompt, acceptance checks, and limits. Each trial runs in a **fresh isolated workspace** (template copy or local git clone — your real repos are never touched), in seeded-random order, with hard timeouts and process-group termination. After the agent finishes, **Caliper itself runs the acceptance checks** — including a test-file hash check so an agent cannot "pass" by deleting tests. Metrics (tokens, cost, tool calls, errors) come from the existing content-free session adapters.
@@ -140,17 +141,19 @@ The verdict is correctness-first: a faster configuration that produces incorrect
 **Safety gates:** real-agent runs perform paid model inference and require `--approve-inference`. Codex/Claude execution backends are implemented but not yet verified against live installs and additionally require `--allow-unverified`. OpenCode is the primary verified backend. Mock configurations run free and are used by all automated tests.
 
 ```
-RESULTS (illustrative — actual output depends on your runs)
-                        Baseline            Candidate
-Task success            0/3                 3/3
-Avg time                251ms               129ms
-Output tokens           11.4k               7.2k
-Test failures           3                   0
+RESULTS
+  Metric              baseline-slow*  candidate-fast
+  Task success                   0/3             3/3
+  Avg time                     223ms           106ms
+  Output tokens                11.4k            7.2k
+  Test failures                    3               0
+  * baseline · — = unavailable (not zero)
 
 VERDICT
-  Winner: Candidate · confidence: preliminary
-  Correctness decides: task success 0/3 vs 3/3. A faster configuration
-  that produces incorrect code is not superior.
+  Winner: Candidate (mock, applies fix) · confidence: preliminary
+  Recommendation state: experiment-completed
+    Correctness decides: task success 0/3 (0%) vs 3/3 (100%). A faster
+    configuration that produces incorrect code is not superior.
 ```
 
 ## The eight rules
