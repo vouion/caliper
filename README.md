@@ -44,7 +44,7 @@ git clone https://github.com/vouion/caliper && cd caliper
 npm install && npm run build
 npm link                     # puts `caliper` on your PATH
 
-# From npm (registry publish pending account 2FA — see the v0.4.0 release notes):
+# From npm (registry publish pending account 2FA — see the latest release notes):
 npm install -g @vouion/caliper
 ```
 

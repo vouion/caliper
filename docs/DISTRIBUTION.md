@@ -15,7 +15,7 @@ project with evidence of use — that is the resume goal, and it is achievable.
 | # | Channel | Why it matters | Status |
 |---|---|---|---|
 | 1 | **npm registry** (`@vouion/caliper`) | The install path most devs expect; `npm i -g` frictionless | Ready; **[founder]** 2FA blocks publish |
-| 2 | **GitHub release + social preview** | Share card when the repo is linked anywhere; release = installable tarball | v0.3.0 live; v0.4.0 prep below; social preview pending |
+| 2 | **GitHub release + social preview** | Share card when the repo is linked anywhere; release = installable tarball | v0.4.2 live (latest); social preview pending |
 | 3 | **Show HN** | Single highest-leverage post for a dev tool; front page = thousands of visits | Copy ready (`launch/show-hn.md`); **[founder]** posts |
 | 4 | **X / Twitter thread** | Visual demo GIF travels well; tags reach the AI-coding community | Copy ready (`launch/x-thread.md`); **[founder]** posts |
 | 5 | **Reddit** (r/programming, r/commandline, r/LocalLLaMA, r/ClaudeAI, r/ChatGPTCoding) | Targeted communities that already feel the pain | Copy ready (`launch/reddit.md`); **[founder]** posts; check each sub's self-promo rules |
@@ -30,10 +30,9 @@ project with evidence of use — that is the resume goal, and it is achievable.
 ### Phase 0 — Prerequisites (founder-gated)
 1. **[founder]** npm 2FA: supply a one-time code or a granular token with publish
    rights. Then `npm publish --access public` ships `@vouion/caliper`.
-2. Cut **v0.4.0** (includes `caliper prompt` + demo GIF + hero). The v0.3.0
-   GitHub asset predates the prompt feature; npm and GitHub must agree on what
-   "0.3.0" contains, so the prompt feature ships as a new minor. See
-   "Release checklist" below.
+2. ✅ **Done:** GitHub releases cut through **v0.4.2** (prompt feature + demo GIF
+   + hero in 0.4.0; Node 22/24 `node --test` compatibility in 0.4.1; reliable
+   acceptance-check output capture in 0.4.2). CI is green across the matrix.
 3. Set the **GitHub social preview** to `assets/social-preview.png`
    (Settings → General → Social preview). This is the share card.
 
@@ -46,7 +45,7 @@ project with evidence of use — that is the resume goal, and it is achievable.
 
 ### Phase 2 — Launch (founder posts, coordinated)
 Pick one weekday (Tue–Thu), US morning (~08:00–10:00 PT) for Show HN.
-1. Publish npm + v0.4.0 release first so install instructions work.
+1. Publish npm first (GitHub release v0.4.2 is already cut) so install instructions work.
 2. Post **Show HN** (`launch/show-hn.md`); founder stays online to answer
    comments for the first 2–3 hours (engagement drives ranking).
 3. Same day: **X thread** with the demo GIF (`launch/x-thread.md`).
@@ -68,13 +67,13 @@ Pick one weekday (Tue–Thu), US morning (~08:00–10:00 PT) for Show HN.
 - Homebrew tap (`homebrew-caliper`), AUR package, nix flake. Prepare scaffolds
   once npm install is proven; these widen the install funnel.
 
-## Release checklist (v0.4.0)
-- [ ] Bump `package.json` + `src/version.ts` + lockfile to 0.4.0
-- [ ] `npm run typecheck` clean; full `npm test` green; `npm run build`
-- [ ] `npm pack` → install smoke test of the tarball
-- [ ] Move CHANGELOG `[Unreleased]` → `0.4.0`
-- [ ] Tag `v0.4.0`; GitHub release with notes + tarball asset
-- [ ] **[founder]** `npm publish --access public` (2FA)
+## Release checklist (latest: v0.4.2)
+- [x] Bump `package.json` + `src/version.ts` + lockfile
+- [x] `npm run typecheck` clean; full `npm test` green (202, Node 22 + 26); `npm run build`
+- [x] `npm pack` → install smoke test of the tarball
+- [x] CHANGELOG updated per release
+- [x] Tag + GitHub release with notes + tarball asset (v0.4.0 / v0.4.1 / v0.4.2)
+- [ ] **[founder]** `npm publish --access public` (needs a bypass-2FA token or `--otp`)
 - [ ] Update README install section to the live npm name; remove "pending"
 - [ ] Set social preview
 
