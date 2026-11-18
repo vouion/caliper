@@ -464,7 +464,7 @@ export class ClaudeAdapter implements AgentAdapter {
             events.push({ kind: 'idle', at, error: { type: 'api_error' } });
           }
           // Other subtypes (turn_duration, stop_hook_summary, local_command,
-          // informational, ...): no v0.2 diagnostic signal; content never read.
+          // informational, ...): no diagnostic signal; content never read.
           continue;
         }
         if (type === 'summary') {
@@ -484,7 +484,7 @@ export class ClaudeAdapter implements AgentAdapter {
         // file-history-*, session-owner, bridge-session, last-prompt, mode,
         // permission-mode, pr-link, tools-used, agent-name, continued-in,
         // atis-latch, ...): ignored. Several carry raw content or identity
-        // data; none are needed for v0.2 diagnostics.
+        // data; none are needed for diagnostics.
       } catch (err) {
         // Defense in depth: exception text is structural in practice, but
         // sanitize anyway so no unexpected error can carry content into

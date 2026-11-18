@@ -1,7 +1,8 @@
 /**
  * Recommendations are derived deterministically from findings.
- * v0.1 never applies changes automatically and never claims experimental
- * verification: `tested` is always false with an explicit note.
+ * Caliper never applies changes automatically. Observational recommendations
+ * never claim experimental verification: `tested` is false with an explicit
+ * note; verification comes only from linked experiments.
  */
 import type { Finding, Recommendation } from '../core/types.ts';
 
@@ -147,7 +148,7 @@ export function buildRecommendations(findings: Finding[]): Recommendation[] {
       evidence,
       tested: false,
       testedNote:
-        'Not experimentally verified. Based on deterministic observation of your sessions/environment; Caliper v0.1 does not run experiments.',
+        'Not experimentally verified — based on deterministic observation of your sessions/environment. Test it with: caliper experiment create --recommendation <id>.',
       benefits: template.benefits,
       tradeoffs: template.tradeoffs,
       apply: template.apply,

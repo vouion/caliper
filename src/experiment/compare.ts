@@ -20,10 +20,10 @@ import type {
   ExperimentComparison,
   ExperimentRecord,
   ExperimentVerdict,
-  RecommendationState,
   TrialResult,
   VerdictConfidence,
 } from './types.ts';
+import type { RecommendationState } from '../core/types.ts';
 
 function mean(xs: number[]): number {
   return xs.reduce((a, b) => a + b, 0) / xs.length;

@@ -137,7 +137,7 @@ Rules are pure functions `(sessions, environment) → Finding[]`. Thresholds are
 
 ### Recommendations
 
-One recommendation per fired rule, with the eight mandated fields (what/why/change/evidence/tested/benefits+tradeoffs/apply/rollback). `tested` is always `false` in v0.1 with an explicit note. Apply steps are manual; rollback is always described. No auto-apply exists.
+One recommendation per fired rule, with the eight mandated fields (what/why/change/evidence/tested/benefits+tradeoffs/apply/rollback). Audit recommendations are observational (`tested: false`); only an experiment verdict of `verified-improvement` represents a proven improvement (see Recommendation lifecycle states). Apply steps are manual; rollback is always described. No auto-apply exists.
 
 ### Reports
 

@@ -417,7 +417,7 @@ export class CodexAdapter implements AgentAdapter {
           continue;
         }
         // reasoning, additional_tools, configuration_update, world_state etc.:
-        // no v0.1 diagnostic signal; ignored intentionally.
+        // no diagnostic signal; ignored intentionally.
       } catch (err) {
         warn(`line ${i + 1}: ${sanitizeErrorMessage(errorMessage(err)) ?? 'record processing error'}`);
       }

@@ -22,7 +22,7 @@ ENVIRONMENT
 
 FINDINGS (23)  high 1 · medium 12 · low 10
 
-  [HIGH] Repeated identical tool failures in Caliper Evals MVP bootstrap
+  [HIGH] Repeated identical tool failures in Refactor payment webhook handler
          rule repeated-tool-failures · confidence high · scope sessions
          · Tool "subagent" failed 8× with identical input
          impact: Identical failing calls burn tokens and time without new
@@ -47,7 +47,7 @@ Usage dashboards tell you *what* you spent. Caliper tells you *what was wasted a
 
 Every finding carries supporting evidence, a confidence level, consequences, and a concrete recommendation with apply/rollback steps. Nothing is transmitted. No account. No LLM required.
 
-**Honest positioning:** session *observation* is a crowded space (ccusage, Decant, Sniffly, and others do it well). Caliper's focus is the next step: deterministic **workflow-quality diagnostics** across agents, and — on the roadmap — controlled experiments that verify whether a recommended change actually helped. See [docs/research/competitive-landscape.md](docs/research/competitive-landscape.md) for a sourced comparison, including where competitors already beat us.
+**Honest positioning:** session *observation* is a crowded space (ccusage, Decant, Sniffly, and others do it well). Caliper's focus is the next step: deterministic **workflow-quality diagnostics** across agents, plus **controlled experiments that verify whether a recommended change actually helped** — not just suggest it. See [docs/research/competitive-landscape.md](docs/research/competitive-landscape.md) for a sourced comparison, including where competitors already beat us.
 
 ## Install
 
@@ -94,7 +94,7 @@ Session schemas are version-sensitive. Caliper probes the layout before reading,
 - **Honest costs.** Dollar figures come from Claude Code's own `cost-state` and are suppressed when it flags unknown model pricing. Tokens are always shown; costs are never invented.
 - **Private files stay private.** `~/.claude.json` and `.credentials.json` are never opened. Transcript text, tool inputs/outputs, thinking, attachments, and API-request blobs never enter Caliper's model (sentinel-tested).
 
-## What v0.3 does
+## What Caliper does
 
 | Capability | Status |
 |---|---|
@@ -115,7 +115,7 @@ Session schemas are version-sensitive. Caliper probes the layout before reading,
 
 Audit recommendations are **observational, not experimentally verified** (`tested: false`). Only an experiment verdict of `verified-improvement` represents a proven improvement — and that requires ≥5 trials with a large effect. Caliper never applies changes for you.
 
-## Experiments (v0.3)
+## Experiments
 
 Caliper can now **prove** whether a configuration change helps, on your own tasks:
 
@@ -153,7 +153,7 @@ VERDICT
   that produces incorrect code is not superior.
 ```
 
-### The eight rules
+## The eight rules
 
 | Rule | Fires when | Confidence |
 |---|---|---|
@@ -168,7 +168,7 @@ VERDICT
 
 Thresholds are deliberately conservative. Absence of findings is not a guarantee of optimality.
 
-### Performance (real collection, measured)
+## Performance (real collection, measured)
 
 Benchmarked against a real Claude Code install with **5,422 sessions (1.81 GB)** on Node 26, Linux, `--all --limit 1000`:
 
@@ -204,7 +204,7 @@ npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source
 ```
 
-Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Roadmap: [ROADMAP.md](ROADMAP.md). Agent/contributor conventions: [AGENTS.md](AGENTS.md).
+Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Roadmap: [ROADMAP.md](ROADMAP.md). Changelog: [CHANGELOG.md](CHANGELOG.md). Agent/contributor conventions: [AGENTS.md](AGENTS.md).
 
 ## License
 

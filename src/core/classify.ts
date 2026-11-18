@@ -4,7 +4,7 @@ import type { CommandCategory } from './types.ts';
  * Coarse, privacy-preserving classification of shell/exec commands.
  * The raw command is classified and discarded; only the category is stored.
  *
- * Design (v0.2 review hardening):
+ * Design (review-hardened):
  * - Shell-wrapper payloads (`bash -lc "npm test"`) are extracted and
  *   classified; the wrapper itself is not.
  * - Quoted spans elsewhere are arguments/messages, NOT execution: they are

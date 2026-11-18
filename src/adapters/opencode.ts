@@ -210,12 +210,12 @@ export class OpenCodeAdapter implements AgentAdapter {
     if (isReadableFile(configPath)) installation.configPath = configPath;
 
     if (!isReadableFile(dbPath)) {
-      // Legacy JSON-file storage (pre-SQLite OpenCode) is not supported in v0.1.
+      // Legacy JSON-file storage (pre-SQLite OpenCode) is not supported.
       const legacy = path.join(dataDir, 'storage', 'session');
       if (isDirectory(legacy)) {
         installation.layout = 'legacy-json';
         issues.push(
-          'Legacy JSON session storage detected. Caliper v0.1 supports the SQLite layout (OpenCode ≥ 2.x).',
+          'Legacy JSON session storage detected. Caliper supports the SQLite layout (OpenCode ≥ 2.x).',
         );
       } else if (isDirectory(dataDir)) {
         installation.layout = 'unknown';
@@ -476,7 +476,7 @@ export class OpenCodeAdapter implements AgentAdapter {
         return ev;
       }
       default:
-        // system/synthetic/location-switched etc. carry no diagnostic signal in v0.1.
+        // system/synthetic/location-switched etc. carry no diagnostic signal.
         return undefined;
     }
   }

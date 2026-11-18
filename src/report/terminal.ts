@@ -182,7 +182,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   const counts = countBySeverity(report.findings);
   push(p.bold(`FINDINGS (${report.findings.length})`) + p.dim(`  high ${counts.high} · medium ${counts.medium} · low ${counts.low}`));
   if (report.findings.length === 0 && c.sessionsAnalyzed > 0) {
-    push(p.green('  No issues matched the v0.2 diagnostic rules in the analyzed data.'));
+    push(p.green('  No issues matched the diagnostic rules in the analyzed data.'));
     push(p.dim('  Rules are conservative; absence of findings is not a guarantee of optimality.'));
   }
   for (const f of report.findings) {

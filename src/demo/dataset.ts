@@ -1,7 +1,7 @@
 /**
  * Synthetic demonstration dataset.
  *
- * Clearly labeled, fully fabricated sessions that exercise every v0.1
+ * Clearly labeled, fully fabricated sessions that exercise every
  * diagnostic rule, so new users can experience Caliper without importing
  * personal session data. Demo audits never touch the real cache or the
  * last-audit artifact.

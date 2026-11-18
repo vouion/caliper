@@ -220,13 +220,13 @@ export interface Recommendation {
   change: string;
   /** 4. What evidence supports it (content-free summaries). */
   evidence: string[];
-  /** 5. Whether it has been experimentally tested. Always false in v0.1. */
+  /** 5. Whether experimentally tested. False for observational audit recommendations; verification is tracked via recommendation state + linked experiments. */
   tested: boolean;
   testedNote: string;
   /** 6. Expected benefits and trade-offs. */
   benefits: string;
   tradeoffs: string;
-  /** 7. How to apply the change (manual steps; Caliper never auto-applies in v0.1). */
+  /** 7. How to apply the change (manual steps; Caliper never auto-applies). */
   apply: string[];
   /** 8. How to reverse it. */
   rollback: string[];

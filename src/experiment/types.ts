@@ -169,8 +169,6 @@ export interface ExperimentRecord {
   error?: string;
 }
 
-export type { RecommendationState };
-
 export type VerdictConfidence = 'verified' | 'preliminary' | 'inconclusive';
 
 export interface ConfigAggregate {
