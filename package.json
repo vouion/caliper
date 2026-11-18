@@ -1,6 +1,6 @@
 {
   "name": "havrin",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Local-first, evidence-driven optimization engine for AI-powered development. Analyze coding-agent sessions, diagnose workflow inefficiencies, and get evidence-backed recommendations.",
   "license": "Apache-2.0",
   "type": "module",

@@ -1,14 +1,23 @@
-# Havrin Architecture (v0.2)
+# Havrin Architecture (v0.3)
 
 ## Overview
 
-Havrin is a single-process Node.js CLI. The pipeline is:
+Havrin is a single-process Node.js CLI. The audit pipeline is:
 
 ```
 detect → list → ingest (incremental) → environment scan → diagnostics → recommendations → report
 ```
 
-Six subsystems are planned long-term (Session Intelligence, Environment Intelligence, Diagnostic Engine, Software Discovery, Experimentation, Optimization). v0.2 implements the first three plus the recommendation half of Optimization, for three agents (OpenCode, Codex CLI, Claude Code). Discovery and Experimentation are deliberately absent — see ROADMAP.md.
+The experiment pipeline (v0.3) closes the loop:
+
+```
+create (benchmark + configs + fingerprints) → run (isolated trials, seeded order)
+  → execute (approval-gated backends) → verify (Havrin-run acceptance checks)
+  → measure (session-adapter reuse) → compare (correctness-first verdicts)
+  → link (recommendation lifecycle states)
+```
+
+Six subsystems are planned long-term (Session Intelligence, Environment Intelligence, Diagnostic Engine, Software Discovery, Experimentation, Optimization). v0.3 implements the first three, the Experimentation engine foundation, and the recommendation half of Optimization, for three agents (OpenCode, Codex CLI, Claude Code). Discovery is deliberately absent — see ROADMAP.md.
 
 ```
 src/
@@ -20,12 +29,13 @@ src/
   version.ts
   core/
     types.ts           Normalized data model + privacy contract (the central schema)
+    validate.ts        Deep structural validators (cache/artifact/experiment integrity)
     session.ts         Model helpers: iterTools, token/cost aggregation
-    classify.ts        Privacy-preserving command classification; read/write tool sets
-    util.ts            Fingerprints (sha256), redaction, duration/token formatting
+    classify.ts        Privacy-preserving segment-based command classification
+    util.ts            Fingerprints (sha256, depth-capped), redaction, sanitization
     fs.ts              XDG paths, atomic writes, PATH lookup (no subprocess)
     errors.ts          HavrinError codes: USAGE/NO_AUDIT/NO_DATA/IO/PARSE/UNSUPPORTED/INTERNAL
-  adapters/
+  adapters/            SESSION-READING adapters (observe history, read-only)
     adapter.ts         AgentAdapter interface: detect / listSessions / readSession
     opencode.ts        OpenCode SQLite adapter (verified v2.3.x)
     codex.ts           Codex JSONL rollout adapter (verified 0.169.x)
@@ -36,11 +46,29 @@ src/
     rules.ts           Eight pure rules + engine (thresholds documented per rule)
   optimize/
     recommend.ts       Finding → 8-field recommendation templates (tested: false)
+  experiment/          EXPERIMENTATION engine (v0.3)
+    types.ts           Benchmark/config/trial/verdict model + availability contract
+    validate.ts        Strict benchmark/config validation (untrusted user input)
+    builtin.ts         Built-in fix-failing-test benchmark (anti-cheat hash check)
+    workspace.ts       Source fingerprinting + isolated workspace materialization
+    execution/         EXECUTION adapters (run agents; distinct from session adapters)
+      adapter.ts       Interface + controlled spawn (timeout, group kill, output cap)
+      mock.ts          Deterministic mock backend (tests/demo; zero cost)
+      opencode.ts      Primary backend (interface-verified v2.3.1)
+      codex.ts         Implemented, live execution UNVERIFIED (gated)
+      claude.ts        Implemented, live execution UNVERIFIED (gated)
+    metrics.ts         Havrin-run acceptance checks + session-metrics reuse
+    compare.ts         Aggregates + correctness-first verdict rules
+    store.ts           Registry persistence, integrity validation, run locks, recovery
+    runner.ts          Orchestration: approval gates, seeded order, resume semantics
+    report.ts          Terminal/JSON experiment reports
+    link.ts            Recommendation ↔ experiment lifecycle states
+    demo.ts            Ephemeral mock experiment (nothing persisted)
   report/
     assemble.ts        Shared report assembly (real + demo use the same path)
     terminal.ts        ANSI terminal renderer (NO_COLOR/FORCE_COLOR/TTY aware)
   demo/
-    dataset.ts         Synthetic dataset exercising every rule; clearly labeled
+    dataset.ts         Synthetic audit dataset exercising every rule; clearly labeled
 ```
 
 ## Key decisions
@@ -117,13 +145,51 @@ One recommendation per fired rule, with the eight mandated fields (what/why/chan
 - JSON: the `AuditReport` object verbatim (`schemaVersion: '1'`), suitable for scripting.
 - `havrin report` re-renders `last-audit.json`; demo audits never overwrite real state.
 
+## Experimentation engine (v0.3)
+
+### Separation of concerns
+
+Session-reading adapters (`src/adapters/`) observe history and are read-only. Execution adapters (`src/experiment/execution/`) run agents headlessly and are a **separate interface** — no session adapter gained execution capabilities. Metrics flow back through the existing session adapters (reuse, not duplication): after a trial, the runner locates the agent's session (caller-chosen id for OpenCode/Claude; cwd+time discovery for Codex) and extracts content-free metrics.
+
+### Benchmarks and isolation
+
+A `BenchmarkSpec` defines: source (template directory or local git repo), task prompt, deterministic acceptance checks (`test-command`, `command-succeeds`, `file-exists`, `file-hash`), and execution limits. The built-in `fix-failing-test` benchmark ships a dependency-free JS project with a genuine boundary bug, a 6-case node:test suite (exactly 1 failing at baseline), and a **test-file hash acceptance check** — an agent cannot pass by modifying/deleting tests.
+
+Every trial gets a fresh workspace: templates are copied; git sources use `git clone --local --no-hardlinks` (no network, independent object store). Sources are fingerprinted at creation (sorted file hashes / git HEAD) and re-verified before every run — changed sources block execution to preserve reproducibility. Workspaces are deleted after trials unless `--keep-workspaces`.
+
+### Execution safety
+
+- Fixed argv, never shell strings, for agent invocation. OpenCode: `run --format json --session <id> --title <label> --archived --auto --standalone [--model] [--agent]`. Codex: `exec -s workspace-write -C <ws> --json`. Claude: `-p --output-format json --session-id <uuid> --permission-mode bypassPermissions`.
+- Hard timeouts with process-group termination (SIGTERM → 5s grace → SIGKILL).
+- stdout/stderr streamed to transient capped files (32MB), parsed only for structure, then deleted. Never persisted, never retained in memory.
+- **Approval gates**: real-agent runs require `--approve-inference` (paid inference + code modification). Unverified backends (Codex/Claude live execution) additionally require `--allow-unverified`. `--dry-run` previews the plan without approval or execution. Mock runs are free.
+- Instruction variants are prepended to the task prompt — **no agent configuration file is ever modified**.
+- Run locks (pid-based, stale-lock recovery) prevent duplicated concurrent execution; completed trials are never re-executed on resume; interrupted trials are marked and re-attempted.
+
+### Measurement and verdicts
+
+Correctness is evaluated by Havrin running acceptance checks in the workspace after the agent finishes — never agent-reported, never LLM-judged. Test counts are parsed best-effort from node:test (spec/TAP) and pytest reporters, labeled by source; exit code is authoritative. `null` means unavailable, never zero.
+
+Verdict rules (deterministic, boundary-tested):
+1. Success-rate gap ≥ 1/3 with n ≥ 3 → correctness decides (faster-but-incorrect never wins).
+2. Efficiency decides only when both sides ≥ 80% success, gap < 1/3, and time improves ≥ 20% AND tokens ≥ 10%. Mixed efficiency = trade-off, no winner.
+3. Confidence: n ≥ 5 + large gap → `verified`; n ≥ 3 → `preliminary`; n < 3 → `inconclusive`. These are conservative engineering thresholds, not a full statistical test; variance (stddev/min/max) is reported alongside. No p-values are invented.
+
+Recommendation states: `proposed → ready-for-testing → experiment-running → experiment-completed → verified-improvement | no-meaningful-improvement | regression-detected | inconclusive`. Only `verified-improvement` is an experimentally proven improvement. `havrin audit` links states automatically for experiments created with `--recommendation <id>`.
+
+### Registry
+
+`havrinHome()/experiments/<id>/experiment.json` — definition, config fingerprints, environment metadata (agent versions, platform, Node), order seed, trial results. Deep shape validation on load; corrupt records are rejected (listed as `corrupted`, never crash). Atomic 0600 writes. Transient `scratch/` and `workspaces/` are cleaned in `finally` blocks.
+
 ## CLI contract
 
-- Commands: `doctor`, `audit`, `report`, `demo`, `help`, `version`.
-- Exit codes: `0` success (including "no data" audits, which explain themselves), `1` runtime failure / doctor failures, `2` usage error.
+- Commands: `doctor`, `audit`, `report`, `demo`, `experiment {list|create|run|report|inspect|demo}`, `help`, `version`.
+- Exit codes: `0` success (including "no data" audits, which explain themselves), `1` runtime failure / doctor failures, `2` usage error (including missing experiment approval).
 - Structured errors: `error[CODE]: message` + `hint:` on stderr. Parser exception messages are never propagated (they can embed source content).
 - `audit` flags: `--agent opencode|codex|claude` (repeatable), `--since <dur>`, `--all` (mutually exclusive with `--since`), `--limit <1..1000>`, `--no-cache`, `--project <dir>`, `--json`.
 - `report` flags: `--format json|terminal`; `--json` is an alias for `--format json`.
+- `experiment create` flags: `--benchmark <ref>`, `--baseline <file>`, `--candidate <file>` (repeatable), `--trials <1..20>`, `--seed <n>`, `--recommendation <id>` (repeatable).
+- `experiment run` flags: `--approve-inference`, `--allow-unverified`, `--dry-run`, `--keep-workspaces`, `--timeout <ms>`.
 - Coverage accounting: `discovered = analyzed + skippedWindow + skippedLimit + failedReads`.
 - The published bin (`dist/bin.js`) checks the Node version before loading the CLI, so unsupported runtimes get a clear message instead of a module-load stack.
 
@@ -135,19 +201,21 @@ Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DI
 
 ## Subprocess policy
 
-The only subprocess execution is `<agent-binary> --version` during detection (opencode, codex, claude): fixed argv, no shell, 8s timeout, 64KB output cap, stderr discarded. PATH lookup itself is pure filesystem inspection.
+Two bounded surfaces:
+1. **Detection**: `<agent-binary> --version` (opencode, codex, claude) — fixed argv, no shell, 8s timeout, 64KB cap, stderr discarded. PATH lookup is pure filesystem inspection.
+2. **Experiments** (approval-gated): agent execution via fixed argv with hard timeout + process-group kill + capped transient output; benchmark acceptance commands via `/bin/sh -c <command>` (user-authored benchmark definitions, passed as a single argv element, run inside isolated workspaces with their own timeouts). Local `git clone --local --no-hardlinks` for git-source workspaces. No other subprocess execution exists.
 
 ## Testing
 
-`node:test` (no framework dependency): 131 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, and the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type).
+`node:test` (no framework dependency): 181 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three session adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type), and the experimentation engine (create validation, full mock lifecycle, approval gates, dry-run, seeded order reproducibility, workspace isolation incl. git sources, failure/timeout honesty, interrupt recovery, live-lock duplicate protection, source-fingerprint integrity, verdict boundary tests, test-stats parsing, recommendation linking, registry privacy).
 
-Real-world integration verified separately against installed OpenCode 2.3.1 (258 sessions), Codex 0.169.1 (25 rollouts), and Claude Code 2.1.327 (5,422 transcripts, 1.81 GB): discovery, ingestion, diagnostics, caching, and benchmarking (see README performance table).
+Real-world integration verified separately against installed OpenCode 2.3.1 (258 sessions), Codex 0.169.1 (25 rollouts), and Claude Code 2.1.327 (5,422 transcripts, 1.81 GB): discovery, ingestion, diagnostics, caching, and benchmarking (see README performance table). Experiment execution backends: OpenCode interface verified against `opencode run --help` (v2.3.1); live paid runs are approval-gated and have not been executed by the maintainers as of this release. Codex/Claude execution is implemented but explicitly unverified.
 
-## Known limitations (v0.2)
+## Known limitations (v0.3)
 
 - OpenCode legacy JSON storage unsupported (detected + reported).
 - Codex tool-error detection is heuristic; some failures and some tool types are invisible.
-- Shell command classification is regex-based and conservative (false negatives expected).
+- Shell command classification is regex-based and conservative (false negatives expected; quoted mentions/search arguments excluded from test detection).
 - MCP usage attribution relies on naming conventions (`server_tool`, `mcp__server__tool`).
 - Claude global MCP servers (in `~/.claude.json`) are out of scope because that file holds auth data; only project `.mcp.json` is scanned.
 - Claude `cost-state` totals can exceed transcript-parsed tokens (compaction/retry API calls produce no transcript message); both figures are reported separately.
@@ -155,4 +223,4 @@ Real-world integration verified separately against installed OpenCode 2.3.1 (258
 - Instruction-file *conflict* detection is limited to skill-id collisions; semantic conflict analysis of instruction content is future work (and must remain content-local).
 - Project-level `opencode.json` / `.opencode/` config (MCP servers, providers) is not yet scanned; only global config + project instruction files/skills.
 - Cost figures are agent-reported; $0.00 may mean unavailable pricing.
-- No experiments: recommendations are observational.
+- **Experiments**: Codex/Claude live execution unverified; no community benchmark suites yet; verdict thresholds are conservative engineering rules, not full statistical tests; skill/MCP configuration variants require manual config changes (only model/agent/instruction variants are automated); cross-experiment comparison and historical tracking are future work.

@@ -30,7 +30,7 @@ export function shouldUseColor(streamIsTTY: boolean | undefined): boolean {
   return streamIsTTY === true;
 }
 
-class Painter {
+export class Painter {
   private enabled: boolean;
   constructor(enabled: boolean) {
     this.enabled = enabled;
@@ -240,6 +240,10 @@ function renderRecommendation(r: Recommendation, index: number, p: Painter, widt
   const lines: string[] = [];
   const indent = '    ';
   lines.push(p.bold(`  ${index}. ${safe(r.what)}`));
+  if (r.state && r.state !== 'proposed') {
+    const stateColor = r.state === 'verified-improvement' ? p.green : r.state === 'regression-detected' ? p.red : p.yellow;
+    lines.push('    ' + p.dim('state: ') + stateColor(r.state) + (r.experimentId ? p.dim(` · experiment ${r.experimentId}`) : ''));
+  }
   const field = (label: string, text: string) => {
     lines.push(...labeled(p.dim(label + ' '), text, width, indent));
   };

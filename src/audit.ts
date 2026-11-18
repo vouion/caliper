@@ -17,6 +17,7 @@ import { CodexAdapter } from './adapters/codex.ts';
 import { ClaudeAdapter } from './adapters/claude.ts';
 import { scanEnvironment } from './env/environment.ts';
 import { assembleReport } from './report/assemble.ts';
+import { linkRecommendationStates } from './experiment/link.ts';
 import { loadCache, saveCache, saveLastAudit } from './store.ts';
 import { errorMessage } from './core/errors.ts';
 
@@ -143,6 +144,9 @@ export function runAudit(opts: AuditOptions = {}): AuditOutcome {
     coverage,
     sessions,
   });
+  // Connect the observe→diagnose→experiment→verify loop: recommendations
+  // linked to experiments carry their lifecycle state.
+  linkRecommendationStates(report.recommendations);
 
   if (opts.persist !== false) {
     try {

@@ -209,3 +209,121 @@ test('cli: audit with no data communicates clearly and exits 0', () => {
   assert.ok(r.stdout.includes('havrin demo'));
   cleanup(dir);
 });
+
+// ---------------------------------------------------------------------------
+// Experiment CLI
+// ---------------------------------------------------------------------------
+
+function expEnv(dir: string): Record<string, string> {
+  const home = path.join(dir, 'home');
+  return {
+    HAVRIN_HOME: path.join(dir, 'state'),
+    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'none'),
+    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
+    HAVRIN_CODEX_HOME: path.join(dir, 'none'),
+    HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+    CLAUDE_CONFIG_DIR: '',
+    HOME: home,
+    USERPROFILE: home,
+    XDG_CONFIG_HOME: path.join(home, '.config'),
+    NO_COLOR: '1',
+  };
+}
+
+const MOCK_BASE = {
+  id: 'base',
+  label: 'Base',
+  agent: 'mock',
+  mockBehavior: { durationMs: 5, outcome: 'success', edits: [], metrics: { tokens: { input: 100, output: 100, reasoning: 0, cacheRead: 0, cacheWrite: 0 }, toolCalls: 3, toolErrors: 1 } },
+};
+const MOCK_CAND = {
+  id: 'cand',
+  label: 'Cand',
+  agent: 'mock',
+  mockBehavior: {
+    durationMs: 5,
+    outcome: 'success',
+    edits: [{ path: 'src/price.js', content: 'export function finalPrice(price, discountRate) {\n  if (price >= 100) {\n    return Math.round(price * (1 - discountRate) * 100) / 100;\n  }\n  return price;\n}\n' }],
+    metrics: { tokens: { input: 80, output: 60, reasoning: 0, cacheRead: 0, cacheWrite: 0 }, toolCalls: 2, toolErrors: 0 },
+  },
+};
+
+test('cli: experiment demo --json produces a completed comparison', () => {
+  const r = runCli(['experiment', 'demo', '--json'], { NO_COLOR: '1' });
+  assert.equal(r.status, 0);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.record.status, 'completed');
+  assert.equal(out.comparison.verdict.winnerConfigId, 'candidate-fast');
+  assert.equal(out.record.trials.length, 6);
+});
+
+test('cli: experiment demo terminal shows mock banner and verdict', () => {
+  const r = runCli(['experiment', 'demo'], { NO_COLOR: '1' });
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('MOCK configurations'));
+  assert.ok(r.stdout.includes('VERDICT'));
+  assert.ok(!r.stdout.includes('\u001b['));
+});
+
+test('cli: experiment create → run → report → inspect lifecycle', () => {
+  const dir = tempDir();
+  const env = expEnv(dir);
+  fs.writeFileSync(path.join(dir, 'base.json'), JSON.stringify(MOCK_BASE));
+  fs.writeFileSync(path.join(dir, 'cand.json'), JSON.stringify(MOCK_CAND));
+  const created = runCli(['experiment', 'create', '--benchmark', 'builtin:fix-failing-test', '--baseline', path.join(dir, 'base.json'), '--candidate', path.join(dir, 'cand.json'), '--trials', '3', '--seed', '9'], env);
+  assert.equal(created.status, 0);
+  const idMatch = /Created experiment (exp-[a-z0-9-]+)/.exec(created.stdout);
+  const id = idMatch?.[1];
+  assert.ok(id);
+
+  const listed = runCli(['experiment', 'list'], env);
+  assert.equal(listed.status, 0);
+  assert.ok(listed.stdout.includes(id));
+
+  const run = runCli(['experiment', 'run', id], env);
+  assert.equal(run.status, 0);
+  assert.ok(run.stdout.includes('Task success'));
+
+  const report = runCli(['experiment', 'report', id, '--format', 'json'], env);
+  assert.equal(report.status, 0);
+  const parsed = JSON.parse(report.stdout);
+  assert.equal(parsed.record.id, id);
+  assert.equal(parsed.comparison.verdict.winnerConfigId, 'cand');
+
+  const inspect = runCli(['experiment', 'inspect', id], env);
+  assert.equal(inspect.status, 0);
+  assert.equal(JSON.parse(inspect.stdout).id, id);
+  cleanup(dir);
+});
+
+test('cli: experiment run with real agents requires approval (exit 2)', () => {
+  const dir = tempDir();
+  const env = expEnv(dir);
+  fs.writeFileSync(path.join(dir, 'base.json'), JSON.stringify({ id: 'base', label: 'OC', agent: 'opencode', model: 'x/y' }));
+  fs.writeFileSync(path.join(dir, 'cand.json'), JSON.stringify({ id: 'cand', label: 'OC2', agent: 'opencode', model: 'x/z' }));
+  const created = runCli(['experiment', 'create', '--benchmark', 'builtin:fix-failing-test', '--baseline', path.join(dir, 'base.json'), '--candidate', path.join(dir, 'cand.json')], env);
+  assert.equal(created.status, 0);
+  const id = /Created experiment (exp-[a-z0-9-]+)/.exec(created.stdout)?.[1];
+  assert.ok(id);
+  const run = runCli(['experiment', 'run', id], env);
+  assert.equal(run.status, 2);
+  assert.ok(run.stderr.includes('approve-inference'));
+  const dry = runCli(['experiment', 'run', id, '--dry-run'], env);
+  assert.equal(dry.status, 0);
+  assert.ok(dry.stdout.includes('DRY RUN'));
+  cleanup(dir);
+});
+
+test('cli: unknown experiment subcommand exits 2', () => {
+  const r = runCli(['experiment', 'bogus'], { NO_COLOR: '1' });
+  assert.equal(r.status, 2);
+  assert.ok(r.stderr.includes('Unknown experiment subcommand'));
+});
+
+test('cli: experiment report for missing id exits 1 with hint', () => {
+  const dir = tempDir();
+  const r = runCli(['experiment', 'report', 'exp-nonexistent'], expEnv(dir));
+  assert.equal(r.status, 1);
+  assert.ok(r.stderr.includes('not found'));
+  cleanup(dir);
+});

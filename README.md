@@ -7,7 +7,7 @@ Havrin analyzes how you actually work with AI coding agents, finds evidence-back
 ```
 $ havrin audit
 
-havrin v0.2.0 · development environment audit
+havrin v0.3.0 · development environment audit
 ────────────────────────────────────────────────────────────────────────
 ENVIRONMENT
   ● opencode  v2.3.1 · sqlite-v2 · 258 sessions
@@ -88,7 +88,7 @@ Session schemas are version-sensitive. Havrin probes the layout before reading, 
 - **Honest costs.** Dollar figures come from Claude Code's own `cost-state` and are suppressed when it flags unknown model pricing. Tokens are always shown; costs are never invented.
 - **Private files stay private.** `~/.claude.json` and `.credentials.json` are never opened. Transcript text, tool inputs/outputs, thinking, attachments, and API-request blobs never enter Havrin's model (sentinel-tested).
 
-## What v0.2 does
+## What v0.3 does
 
 | Capability | Status |
 |---|---|
@@ -96,13 +96,56 @@ Session schemas are version-sensitive. Havrin probes the layout before reading, 
 | Read-only ingestion with incremental caching (unchanged sessions never re-parsed) | ✅ |
 | Environment scan: configs, MCP servers, skills, instruction files | ✅ |
 | 8 deterministic diagnostic rules with evidence + confidence, across all three agents | ✅ |
-| Recommendations with what/why/change/evidence/tested/benefits/tradeoffs/apply/rollback | ✅ |
+| Recommendations with lifecycle states linked to experiments | ✅ |
+| **Experimentation engine**: reproducible baseline-vs-candidate comparisons | ✅ |
+| Isolated trial workspaces, seeded execution order, multi-trial repetition | ✅ |
+| Deterministic correctness verification (Havrin runs the tests, not the agent) | ✅ |
+| Correctness-first verdicts with explicit confidence (verified/preliminary/inconclusive) | ✅ |
+| Experiment registry: fingerprints, trial results, recovery, duplicate protection | ✅ |
+| OpenCode execution backend (interface-verified); Codex/Claude backends (unverified, gated) | ✅ / ⚠ |
 | Terminal + JSON reports; `doctor` health checks; provider attribution | ✅ |
-| Synthetic demo dataset (all three agents) | ✅ |
-| Malformed/missing data handled safely (partial parses reported, never crash) | ✅ |
-| Software discovery, A/B experimentation, auto-apply | 🗺 roadmap — **not implemented** |
+| Synthetic demo datasets (audit + experiment), zero cost | ✅ |
+| Software discovery, auto-apply, leaderboards | 🗺 roadmap — **not implemented** |
 
-Recommendations are **observational, not experimentally verified**. Every recommendation says so explicitly (`tested: false`). Havrin never applies changes for you.
+Audit recommendations are **observational, not experimentally verified** (`tested: false`). Only an experiment verdict of `verified-improvement` represents a proven improvement — and that requires ≥5 trials with a large effect. Havrin never applies changes for you.
+
+## Experiments (v0.3)
+
+Havrin can now **prove** whether a configuration change helps, on your own tasks:
+
+```sh
+havrin experiment demo        # free end-to-end demo (mock agents, real test verification)
+
+havrin experiment create \
+  --benchmark builtin:fix-failing-test \
+  --baseline baseline.json --candidate candidate.json \
+  --trials 5 --recommendation rec-repeated-tool-failures
+
+havrin experiment run <id> --dry-run          # preview the trial plan
+havrin experiment run <id> --approve-inference  # real agents: explicit approval required
+havrin experiment report <id> --format json
+havrin experiment list | inspect <id>
+```
+
+A benchmark defines the starting repository state, task prompt, acceptance checks, and limits. Each trial runs in a **fresh isolated workspace** (template copy or local git clone — your real repos are never touched), in seeded-random order, with hard timeouts and process-group termination. After the agent finishes, **Havrin itself runs the acceptance checks** — including a test-file hash check so an agent cannot "pass" by deleting tests. Metrics (tokens, cost, tool calls, errors) come from the existing content-free session adapters.
+
+The verdict is correctness-first: a faster configuration that produces incorrect code never wins. Efficiency only decides when correctness is comparable and both time and tokens improve materially. Small samples yield `preliminary` or `inconclusive` — never false certainty.
+
+**Safety gates:** real-agent runs perform paid model inference and require `--approve-inference`. Codex/Claude execution backends are implemented but not yet verified against live installs and additionally require `--allow-unverified`. OpenCode is the primary verified backend. Mock configurations run free and are used by all automated tests.
+
+```
+RESULTS (illustrative — actual output depends on your runs)
+                        Baseline            Candidate
+Task success            0/3                 3/3
+Avg time                251ms               129ms
+Output tokens           11.4k               7.2k
+Test failures           3                   0
+
+VERDICT
+  Winner: Candidate · confidence: preliminary
+  Correctness decides: task success 0/3 vs 3/3. A faster configuration
+  that produces incorrect code is not superior.
+```
 
 ### The eight rules
 
@@ -135,10 +178,11 @@ Transcripts >128 MB are skipped with an explicit warning rather than risking mem
 
 ## Privacy & security
 
-- **Local-only.** No network calls during analysis. No telemetry. No account.
+- **Local-only.** No network calls during analysis. No telemetry. No account. Experiments run agents locally; any inference cost is the agent's own, explicitly approved by you.
 - **Read-only.** Agent databases/files are opened read-only and never modified (tested byte-for-byte).
-- **Content-free reports.** Reports contain metrics, timestamps, tool names, file paths, and fingerprints — never message text, tool output, or raw tool input. Tool error messages are truncated and secret-redacted (redaction before truncation). Config parse errors never echo file content.
+- **Content-free reports.** Reports contain metrics, timestamps, tool names, file paths, and fingerprints — never message text, tool output, or raw tool input. Tool error messages are truncated and secret-redacted (redaction before truncation). Config parse errors never echo file content. Free text is control-character-sanitized before terminal rendering.
 - **Credentials are out of scope by construction.** OpenCode's credential tables are never queried; Claude's `~/.claude.json`/`.credentials.json` are never opened; config values under secret-looking keys are never retained — only the key path is flagged.
+- **Experiments store no conversation content.** The registry holds benchmark definitions, configuration fingerprints, and content-free metrics. Agent stdout goes to transient capped files that are deleted after structural parsing. Trial workspaces are isolated and deleted unless you opt to keep them.
 - **Disclosed exception:** session *titles* are user-derived free text (often LLM-summarized). They are truncated to 120 chars and included for usability; treat reports as sensitive if titles may be.
 - **Your Havrin state** (`~/.local/share/havrin/`) is written with `0600` permissions.
 
@@ -148,7 +192,7 @@ Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ```sh
 npm install
-npm test          # node:test suite (131 tests), no test framework dependency
+npm test          # node:test suite (181 tests), no test framework dependency
 npm run typecheck
 npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source

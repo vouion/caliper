@@ -7,11 +7,17 @@ import { parseArgs } from 'node:util';
 import type { AgentId } from './core/types.ts';
 import { HavrinError, errorMessage } from './core/errors.ts';
 import { parseDuration } from './core/util.ts';
+import { readJsonFile } from './core/fs.ts';
 import { runAudit, DEFAULT_SINCE_MS, DEFAULT_LIMIT } from './audit.ts';
 import { runDoctor } from './doctor.ts';
 import { runDemoAudit } from './demo/dataset.ts';
 import { loadLastAudit } from './store.ts';
 import { renderTerminal, shouldUseColor } from './report/terminal.ts';
+import { createExperiment, runExperiment } from './experiment/runner.ts';
+import { listExperiments, loadExperiment } from './experiment/store.ts';
+import { compareExperiment } from './experiment/compare.ts';
+import { renderExperimentTerminal } from './experiment/report.ts';
+import { runExperimentDemo } from './experiment/demo.ts';
 import { HAVRIN_VERSION } from './version.ts';
 
 const HELP = `havrin v${HAVRIN_VERSION} — local-first optimization engine for AI-powered development
@@ -24,8 +30,21 @@ COMMANDS
   audit               Analyze agent sessions + environment; print findings & recommendations
   report              Re-render the last audit (default: terminal)
   demo                Run the audit on clearly-labeled synthetic data
+  experiment          Reproducible configuration experiments (see below)
   help                Show this help
   version             Print version
+
+EXPERIMENT SUBCOMMANDS
+  havrin experiment list                     List registered experiments
+  havrin experiment create --benchmark <ref> --baseline <config.json>
+      --candidate <config.json> [--trials N] [--seed N] [--recommendation <id>]
+      ref: builtin:fix-failing-test or a benchmark JSON file path
+  havrin experiment run <id> [--approve-inference] [--allow-unverified]
+      [--dry-run] [--keep-workspaces] [--timeout <ms>]
+      Real agents perform PAID inference; --approve-inference is required.
+  havrin experiment report <id> [--format json|terminal]
+  havrin experiment inspect <id>             Full experiment record (JSON)
+  havrin experiment demo                     Free mock experiment, end-to-end
 
 AUDIT OPTIONS
   --agent <id>        Restrict to an agent: opencode | codex | claude (repeatable)
@@ -79,6 +98,17 @@ function parse(argv: string[]): Parsed {
         'no-color': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
         version: { type: 'boolean', default: false },
+        benchmark: { type: 'string' },
+        baseline: { type: 'string' },
+        candidate: { type: 'string', multiple: true },
+        trials: { type: 'string' },
+        seed: { type: 'string' },
+        recommendation: { type: 'string', multiple: true },
+        'approve-inference': { type: 'boolean', default: false },
+        'allow-unverified': { type: 'boolean', default: false },
+        'dry-run': { type: 'boolean', default: false },
+        'keep-workspaces': { type: 'boolean', default: false },
+        timeout: { type: 'string' },
       },
     });
     return { values, positionals };
@@ -96,7 +126,7 @@ function wantString(values: Record<string, unknown>, key: string): string | unde
   return v;
 }
 
-function main(argv: string[]): number {
+function main(argv: string[]): number | Promise<number> {
   const { values, positionals } = parse(argv);
   const color = !values['no-color'] && shouldUseColor(process.stdout.isTTY);
 
@@ -109,8 +139,9 @@ function main(argv: string[]): number {
     process.stdout.write(HELP);
     return 0;
   }
-  if (positionals.length > 1) {
-    throw new HavrinError('USAGE', `Unexpected argument: ${positionals[1]}`, 'Run havrin help for usage.');
+  const maxPositionals = command === 'experiment' ? 3 : 1;
+  if (positionals.length > maxPositionals) {
+    throw new HavrinError('USAGE', `Unexpected argument: ${positionals[maxPositionals]}`, 'Run havrin help for usage.');
   }
 
   switch (command) {
@@ -216,13 +247,154 @@ function main(argv: string[]): number {
       return 0;
     }
 
+    case 'experiment':
+      return experimentCommand(positionals, values, color);
+
     default:
       throw new HavrinError('USAGE', `Unknown command: ${command}`, 'Run havrin help for usage.');
   }
 }
 
+async function experimentCommand(
+  positionals: string[],
+  values: Record<string, unknown>,
+  color: boolean,
+): Promise<number> {
+  const sub = positionals[1];
+  const wantId = (): string => {
+    const id = positionals[2];
+    if (!id) throw new HavrinError('USAGE', 'experiment requires an id', 'Run havrin experiment list to see ids.');
+    return id;
+  };
+  const asJson = values['json'] === true || values['format'] === 'json';
+
+  switch (sub) {
+    case undefined:
+    case 'help':
+      process.stdout.write(HELP);
+      return 0;
+
+    case 'list': {
+      const entries = listExperiments();
+      if (entries.length === 0) {
+        process.stdout.write('No experiments yet. Create one with havrin experiment create, or try havrin experiment demo.\n');
+        return 0;
+      }
+      process.stdout.write('EXPERIMENTS\n');
+      for (const e of entries) {
+        process.stdout.write(`  ${e.id}  ${e.status.padEnd(12)} ${e.benchmarkId.padEnd(20)} trials:${e.trials}\n`);
+      }
+      return 0;
+    }
+
+    case 'create': {
+      const benchmarkRef = wantString(values, 'benchmark');
+      const baselineFile = wantString(values, 'baseline');
+      const candidateFiles = values['candidate'];
+      if (!benchmarkRef || !baselineFile || !Array.isArray(candidateFiles) || candidateFiles.length === 0) {
+        throw new HavrinError('USAGE', 'create requires --benchmark, --baseline, and at least one --candidate', 'See havrin help for the experiment syntax.');
+      }
+      let trials: number | undefined;
+      const trialsRaw = wantString(values, 'trials');
+      if (trialsRaw !== undefined) {
+        trials = Number(trialsRaw);
+        if (!Number.isInteger(trials) || trials < 1 || trials > 20) {
+          throw new HavrinError('USAGE', `Invalid --trials: ${trialsRaw}`, 'Use an integer between 1 and 20.');
+        }
+      }
+      let seed: number | undefined;
+      const seedRaw = wantString(values, 'seed');
+      if (seedRaw !== undefined) {
+        seed = Number(seedRaw);
+        if (!Number.isInteger(seed) || seed < 0) throw new HavrinError('USAGE', `Invalid --seed: ${seedRaw}`);
+      }
+      const recommendationIds = Array.isArray(values['recommendation']) ? (values['recommendation'] as string[]) : [];
+      const record = createExperiment({
+        benchmarkRef,
+        baseline: readJsonFile(baselineFile),
+        candidates: candidateFiles.map((f) => readJsonFile(String(f))),
+        ...(trials !== undefined ? { trialsPerConfig: trials } : {}),
+        ...(seed !== undefined ? { orderSeed: seed } : {}),
+        recommendationIds,
+      });
+      process.stdout.write(`Created experiment ${record.id}\n`);
+      process.stdout.write(`  benchmark: ${record.benchmark.id} (${record.benchmarkFingerprint.slice(0, 24)}…)\n`);
+      process.stdout.write(`  configs: ${record.configs.map((c) => `${c.id}=${c.agent}`).join(', ')} · trials/config: ${record.trialsPerConfig}\n`);
+      const needsApproval = record.configs.some((c) => c.agent !== 'mock');
+      process.stdout.write(`  next: havrin experiment run ${record.id}${needsApproval ? ' --approve-inference' : ''}\n`);
+      return 0;
+    }
+
+    case 'run': {
+      const id = wantId();
+      let timeoutMs: number | undefined;
+      const timeoutRaw = wantString(values, 'timeout');
+      if (timeoutRaw !== undefined) {
+        timeoutMs = Number(timeoutRaw);
+        if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3_600_000) {
+          throw new HavrinError('USAGE', `Invalid --timeout: ${timeoutRaw}`, 'Milliseconds between 1000 and 3600000.');
+        }
+      }
+      const outcome = await runExperiment(id, {
+        approveInference: values['approve-inference'] === true,
+        allowUnverified: values['allow-unverified'] === true,
+        dryRun: values['dry-run'] === true,
+        keepWorkspaces: values['keep-workspaces'] === true,
+        ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      });
+      if (outcome.dryRunPlan) {
+        process.stdout.write(`DRY RUN — experiment ${id} (no execution, no inference)\n`);
+        for (const t of outcome.dryRunPlan) {
+          process.stdout.write(`  order ${t.order}: ${t.trialId} (${t.agent})\n`);
+        }
+        if (outcome.record.configs.some((c) => c.agent !== 'mock')) {
+          process.stdout.write('Real runs require --approve-inference (paid model inference).\n');
+        }
+        return 0;
+      }
+      for (const n of outcome.notices) process.stderr.write(`notice: ${n}\n`);
+      if (asJson) {
+        process.stdout.write(JSON.stringify({ record: outcome.record, comparison: outcome.comparison }, null, 2) + '\n');
+      } else {
+        process.stdout.write(renderExperimentTerminal(outcome.record, outcome.comparison, { color }));
+      }
+      return 0;
+    }
+
+    case 'report': {
+      const record = loadExperiment(wantId());
+      const comparison = compareExperiment(record);
+      if (asJson) {
+        process.stdout.write(JSON.stringify({ record, comparison }, null, 2) + '\n');
+      } else {
+        process.stdout.write(renderExperimentTerminal(record, comparison, { color }));
+      }
+      return 0;
+    }
+
+    case 'inspect': {
+      const record = loadExperiment(wantId());
+      process.stdout.write(JSON.stringify(record, null, 2) + '\n');
+      return 0;
+    }
+
+    case 'demo': {
+      const { record, comparison } = await runExperimentDemo();
+      if (asJson) {
+        process.stdout.write(JSON.stringify({ record, comparison }, null, 2) + '\n');
+      } else {
+        process.stdout.write(renderExperimentTerminal(record, comparison, { color }));
+      }
+      return 0;
+    }
+
+    default:
+      throw new HavrinError('USAGE', `Unknown experiment subcommand: ${sub}`, 'Use list, create, run, report, inspect, or demo.');
+  }
+}
+
 try {
-  process.exitCode = main(process.argv.slice(2));
+  process.exitCode = await main(process.argv.slice(2));
 } catch (err) {
   if (err instanceof HavrinError) {
     process.stderr.write(`error[${err.code}]: ${err.message}\n`);

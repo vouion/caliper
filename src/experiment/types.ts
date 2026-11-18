@@ -14,7 +14,7 @@
  * sufficient repeated evidence.
  */
 import type { AgentId } from '../core/types.ts';
-import type { TokenUsage } from '../core/types.ts';
+import type { TokenUsage, RecommendationState } from '../core/types.ts';
 
 export type ExecutionAgent = AgentId | 'mock';
 
@@ -169,15 +169,7 @@ export interface ExperimentRecord {
   error?: string;
 }
 
-export type RecommendationState =
-  | 'proposed'
-  | 'ready-for-testing'
-  | 'experiment-running'
-  | 'experiment-completed'
-  | 'verified-improvement'
-  | 'no-meaningful-improvement'
-  | 'regression-detected'
-  | 'inconclusive';
+export type { RecommendationState };
 
 export type VerdictConfidence = 'verified' | 'preliminary' | 'inconclusive';
 

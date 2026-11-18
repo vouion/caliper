@@ -70,12 +70,24 @@ They never contain:
 
 The privacy contract is tested end-to-end in `test/privacy.test.ts` (OpenCode + Codex) and `test/claude-privacy.test.ts` (Claude Code): fixtures embed unique sentinel strings in user text, assistant text, thinking, tool inputs, tool outputs, `toolUseResult` content, API-request blobs, attachments, queue operations, file-history snapshots, summaries, config values, and credential stores; the tests assert none appear in the normalized record, report JSON, persisted artifact, or cache. Adapter immutability is tested in all three adapter suites (byte-for-byte). Permission bits are asserted in the privacy suite. Malformed-config-with-secret tests assert warnings stay content-free.
 
+## Experiments (v0.3)
+
+The experiment registry stores **definitions and measurements, never conversations**:
+
+- Benchmark definitions (user-authored task prompts and acceptance checks) and configuration definitions (including instruction variants and mock fixture content) — stored for reproducibility. These are user-created inputs, not captured session data.
+- Configuration fingerprints, benchmark source fingerprints, environment metadata, execution order seeds.
+- Trial results: statuses, timings, exit codes, acceptance check outcomes (structural detail only — `exit=N`, `hash-match`), parsed test counts, and content-free session metrics from the existing adapters.
+
+Never stored: agent conversation content, tool outputs, raw stdout/stderr, credentials. Agent stdout is streamed to transient capped files during execution, parsed only for structural data, and deleted in `finally` blocks. Trial workspaces are isolated copies/clones, deleted after each trial unless `--keep-workspaces` is passed; the benchmark source and your real repositories are never modified (tested).
+
+Execution gates: real-agent runs require explicit `--approve-inference` (paid model inference + code modification in isolated workspaces); unverified backends additionally require `--allow-unverified`. Claude execution uses `--permission-mode bypassPermissions` **only** inside disposable trial workspaces behind these gates; OpenCode uses `--auto` under the same conditions. No agent configuration files are read or modified by execution adapters.
+
 ## Residual risks (honest list)
 
 - **File paths and session titles can themselves be sensitive** (project names, client names). Titles are user-derived — Claude Code's `aiTitle` is an LLM summary of the conversation — and are truncated to 120 chars but otherwise included for usability. Keep `last-audit.json` private; do not publish reports without reviewing them.
 - **Truncated tool error messages** may contain fragments of paths or input echoed by the tool. Redaction covers known credential shapes, not arbitrary secrets. Claude Code heuristic-free reported errors carry no message text at all; Codex heuristic errors carry only a content-free marker.
 - **Fingerprints** are unsalted sha256 of inputs; an attacker who already knows a candidate input can confirm it was used. This is a deliberate trade-off for retry detection; inputs are not stored.
-- **Future subsystems** (discovery, experiments) will introduce network and execution paths. They must ship with explicit consent gates, isolation, and an updated version of this document — not before.
+- **Future subsystems** (discovery) will introduce network paths. They must ship with explicit consent gates, isolation, and an updated version of this document — not before. Experiment execution already introduces local subprocess surfaces; they are approval-gated, isolated, and content-free by construction.
 
 ## Reporting a vulnerability
 

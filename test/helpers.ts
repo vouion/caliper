@@ -193,6 +193,24 @@ export function withEnv<T>(overrides: Record<string, string | undefined>, fn: ()
   }
 }
 
+/** Async variant: env stays overridden until the awaited fn settles. */
+export async function withEnvAsync<T>(overrides: Record<string, string | undefined>, fn: () => Promise<T>): Promise<T> {
+  const saved: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(overrides)) {
+    saved[k] = process.env[k];
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+  try {
+    return await fn();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Claude Code fixtures (shape verified against Claude Code 2.1.x transcripts)
 // ---------------------------------------------------------------------------

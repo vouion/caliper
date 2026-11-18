@@ -16,6 +16,16 @@
 
 export type AgentId = 'opencode' | 'codex' | 'claude';
 
+export type RecommendationState =
+  | 'proposed'
+  | 'ready-for-testing'
+  | 'experiment-running'
+  | 'experiment-completed'
+  | 'verified-improvement'
+  | 'no-meaningful-improvement'
+  | 'regression-detected'
+  | 'inconclusive';
+
 export interface ModelRef {
   provider: string;
   model: string;
@@ -198,6 +208,10 @@ export interface Finding {
 export interface Recommendation {
   id: string;
   findingRuleIds: string[];
+  /** Experiment lifecycle state (v0.3). Defaults to 'proposed'. */
+  state?: RecommendationState;
+  /** Linked experiment id, when one exists. */
+  experimentId?: string;
   /** 1. What was identified. */
   what: string;
   /** 2. Why it matters. */

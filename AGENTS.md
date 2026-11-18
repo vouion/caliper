@@ -15,6 +15,7 @@ Havrin is a local-first CLI that analyzes AI coding-agent session data and confi
 5. **No auto-apply.** Recommendations are instructions for humans. Configuration changes require explicit user action; Havrin v0.1 writes only to its own state dir.
 6. **Evidence before claims.** Every finding needs evidence + confidence. Never present observational results as experimentally verified (`tested` stays `false` until the experimentation engine exists).
 7. **Deterministic diagnostics.** Rules are pure functions of normalized data. No LLM calls, no randomness, no wall-clock-dependent thresholds inside rules.
+8. **Experiment safety.** Real-agent execution requires the `--approve-inference` gate; unverified backends also require `--allow-unverified`. Never weaken or bypass these gates. Trial workspaces must stay isolated (fresh copy/clone per trial); benchmark sources and user repos are never modified. The experiment registry stores definitions + content-free metrics only — never conversation content, tool outputs, or raw stdout. Transient execution artifacts are deleted in `finally`. Completed trials are never re-executed; run locks prevent duplicate execution. Correctness is verified by Havrin-run deterministic checks, never by agent claims or LLM judges; verdicts must not overclaim (n<3 → inconclusive).
 
 ## Code conventions
 
@@ -24,7 +25,8 @@ Havrin is a local-first CLI that analyzes AI coding-agent session data and confi
 - Adapters (`src/adapters/`) translate storage → normalized model and nothing else. Diagnostics (`src/diagnostics/rules.ts`) consume only the normalized model. Keep that boundary.
 - Claude Code adapter: assistant records MUST be merged by `message.id` with usage counted once (split records repeat usage — naive summation inflates tokens 2–3×). `updatedAt` from file mtimes must be floored to integer ms (`Date.now()` truncates).
 - Errors: throw `HavrinError` with a code + hint for user-facing failures; adapters must degrade to `partial: true` + `parseWarnings` for malformed rows, never crash an audit.
-- Subprocesses: only fixed-argv `--version` probes, no shell, bounded timeout/output. Do not add other subprocess execution without a security review.
+- Subprocesses: detection uses only fixed-argv `--version` probes (no shell, bounded timeout/output). Experiment execution adapters spawn agents with fixed argv + timeout + process-group kill + capped transient output; acceptance checks run user-authored benchmark commands via `/bin/sh -c` inside isolated workspaces. Do not add other subprocess surfaces without a security review.
+- Session adapters (`src/adapters/`) and execution adapters (`src/experiment/execution/`) are separate interfaces; keep them separate. Metrics flow back through session adapters — do not duplicate ingestion logic.
 
 ## Testing requirements
 

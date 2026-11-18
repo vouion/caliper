@@ -28,3 +28,5 @@ jobs:
           node dist/cli.js version
           node dist/cli.js demo --json > /tmp/demo-audit.json
           node -e "const r=require('/tmp/demo-audit.json'); if(r.mode!=='demo'||!r.findings.length) process.exit(1)"
+          node dist/cli.js experiment demo --json > /tmp/demo-exp.json
+          node -e "const o=require('/tmp/demo-exp.json'); if(o.record.status!=='completed'||!o.comparison.verdict.winnerConfigId) process.exit(1)"

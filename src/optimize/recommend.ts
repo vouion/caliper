@@ -140,6 +140,7 @@ export function buildRecommendations(findings: Finding[]): Recommendation[] {
     recommendations.push({
       id: `rec-${ruleId}`,
       findingRuleIds: [ruleId],
+      state: 'proposed',
       what: template.what,
       why: template.why,
       change: template.change,
