@@ -35,7 +35,7 @@ import type {
 } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
-import { fingerprint } from '../core/util.ts';
+import { fingerprint, sanitizeErrorMessage } from '../core/util.ts';
 import { classifyCommand } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
 
@@ -468,7 +468,10 @@ export class ClaudeAdapter implements AgentAdapter {
         // atis-latch, ...): ignored. Several carry raw content or identity
         // data; none are needed for v0.2 diagnostics.
       } catch (err) {
-        warn(`line ${i + 1}: ${errorMessage(err)}`);
+        // Defense in depth: exception text is structural in practice, but
+        // sanitize anyway so no unexpected error can carry content into
+        // warnings → reports → persisted state.
+        warn(`line ${i + 1}: ${sanitizeErrorMessage(errorMessage(err)) ?? 'record processing error'}`);
       }
     }
 

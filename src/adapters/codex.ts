@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall, TokenUsage } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
-import { fingerprint } from '../core/util.ts';
+import { fingerprint, sanitizeErrorMessage } from '../core/util.ts';
 import { classifyCommand, commandFromInput } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
 
@@ -418,7 +418,7 @@ export class CodexAdapter implements AgentAdapter {
         // reasoning, additional_tools, configuration_update, world_state etc.:
         // no v0.1 diagnostic signal; ignored intentionally.
       } catch (err) {
-        warn(`line ${i + 1}: ${errorMessage(err)}`);
+        warn(`line ${i + 1}: ${sanitizeErrorMessage(errorMessage(err)) ?? 'record processing error'}`);
       }
     }
 

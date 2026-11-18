@@ -339,7 +339,7 @@ export class OpenCodeAdapter implements AgentAdapter {
           const ev = this.parseMessage(msg, data, at, warn);
           if (ev) events.push(ev);
         } catch (err) {
-          warn(`message ${msg.id}: ${errorMessage(err)}`);
+          warn(`message ${msg.id}: ${sanitizeErrorMessage(errorMessage(err)) ?? 'message processing error'}`);
         }
       }
 
