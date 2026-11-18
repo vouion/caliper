@@ -27,10 +27,13 @@ export function runDoctor(projectDir?: string): DoctorResult {
   const checks: DoctorCheck[] = [];
 
   // Runtime
-  const nodeMajor = Number(process.versions.node.split('.')[0]);
+  const [majorRaw, minorRaw] = process.versions.node.split('.');
+  const major = Number(majorRaw);
+  const minor = Number(minorRaw);
+  const nodeOk = major > 22 || (major === 22 && minor >= 13);
   checks.push({
     name: 'Node.js runtime',
-    status: nodeMajor >= 22 ? 'ok' : 'fail',
+    status: nodeOk ? 'ok' : 'fail',
     detail: `v${process.versions.node} (requires ≥ 22.13 for built-in SQLite)`,
   });
   checks.push({

@@ -15,6 +15,11 @@ import {
   assistantData,
   toolPart,
   withEnv,
+  writeClaudeTranscript,
+  ccUserText,
+  ccAssistant,
+  ccToolUse,
+  ccToolResult,
 } from './helpers.ts';
 
 const NOW = Date.now();
@@ -54,8 +59,11 @@ function envFor(s: ReturnType<typeof setup>, stateDir: string): Record<string, s
     HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
     HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
     HAVRIN_CODEX_HOME: path.join(s.dir, 'no-codex'),
+    HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
     CODEX_HOME: undefined,
+    CLAUDE_CONFIG_DIR: undefined,
     HOME: s.home,
+    USERPROFILE: s.home,
     XDG_CONFIG_HOME: path.join(s.home, '.config'),
   };
 }
@@ -160,8 +168,11 @@ test('audit: empty environment produces clear zero coverage, no crash', () => {
       HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'missing-oc'),
       HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'missing-cfg'),
       HAVRIN_CODEX_HOME: path.join(dir, 'missing-cx'),
+      HAVRIN_CLAUDE_HOME: path.join(dir, 'missing-claude'),
       CODEX_HOME: undefined,
+      CLAUDE_CONFIG_DIR: undefined,
       HOME: path.join(dir, 'missing-home'),
+      USERPROFILE: path.join(dir, 'missing-home'),
       XDG_CONFIG_HOME: path.join(dir, 'missing-xdg'),
     },
     () => {
@@ -183,6 +194,82 @@ test('audit: corrupt cache falls back to full ingestion', () => {
     const { report } = runAudit({ sinceMs: NOW });
     assert.equal(report.coverage.sessionsAnalyzed, 2);
     assert.equal(report.coverage.sessionsFromCache, 0);
+  });
+  cleanup(s.dir);
+});
+
+test('audit: claude incremental cache hits, invalidates on change, preserves attribution', () => {
+  const dir = tempDir();
+  const home = path.join(dir, 'home');
+  const claudeHome = path.join(home, '.claude');
+  const state = path.join(dir, 'state');
+  fs.mkdirSync(claudeHome, { recursive: true });
+  const sid = 'cccccccc-1111-2222-3333-444444444444';
+  const file = writeClaudeTranscript(claudeHome, '-fixture-project', sid, [
+    ccUserText('fix it'),
+    ccAssistant({ messageId: 'm1', blocks: [ccToolUse('t1', 'Bash', { command: 'false' })] }),
+    ccToolResult({ toolUseId: 't1', isError: true }),
+    ccAssistant({ messageId: 'm2', blocks: [ccToolUse('t2', 'Bash', { command: 'false' })] }),
+    ccToolResult({ toolUseId: 't2', isError: true }),
+  ]);
+  const env: Record<string, string | undefined> = {
+    HAVRIN_HOME: state,
+    HAVRIN_CLAUDE_HOME: claudeHome,
+    CLAUDE_CONFIG_DIR: undefined,
+    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
+    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
+    HAVRIN_CODEX_HOME: path.join(dir, 'no-cx'),
+    CODEX_HOME: undefined,
+    HOME: home,
+    USERPROFILE: home,
+    XDG_CONFIG_HOME: path.join(home, '.config'),
+  };
+  withEnv(env, () => {
+    const first = runAudit({ sinceMs: 86_400_000 });
+    assert.equal(first.report.coverage.sessionsAnalyzed, 1);
+    assert.equal(first.report.coverage.sessionsFromCache, 0);
+    assert.ok(first.report.findings.some((f) => f.ruleId === 'repeated-tool-failures' && f.agent === 'claude'));
+
+    const second = runAudit({ sinceMs: 86_400_000 });
+    assert.equal(second.report.coverage.sessionsFromCache, 1);
+
+    // Append a record → mtime/size signature changes → re-ingest.
+    fs.appendFileSync(file, JSON.stringify(ccUserText('another turn')) + '\n');
+    const third = runAudit({ sinceMs: 86_400_000 });
+    assert.equal(third.report.coverage.sessionsFromCache, 0);
+    const summary = third.report.sessions.find((x) => x.id === sid);
+    assert.equal(summary?.agent, 'claude');
+    assert.equal(summary?.userTurns, 2);
+    assert.ok(fs.existsSync(path.join(state, 'cache', 'claude.json')));
+  });
+  cleanup(dir);
+});
+
+test('audit: multi-agent analysis preserves provider attribution', () => {
+  const s = setup();
+  const claudeHome = path.join(s.dir, 'claude-home');
+  fs.mkdirSync(claudeHome, { recursive: true });
+  writeClaudeTranscript(claudeHome, '-fixture-project', 'dddddddd-1111-2222-3333-444444444444', [
+    ccUserText('claude task'),
+    ccAssistant({ messageId: 'cm1', blocks: [ccToolUse('ct1', 'Read', { file_path: '/shared.ts' })] }),
+    ccToolResult({ toolUseId: 'ct1' }),
+  ]);
+  const env = {
+    ...envFor(s, path.join(s.dir, 'state')),
+    HAVRIN_CLAUDE_HOME: claudeHome,
+    CLAUDE_CONFIG_DIR: undefined,
+  };
+  withEnv(env, () => {
+    const { report } = runAudit({ sinceMs: 30 * 86_400_000 });
+    const agents = new Set(report.sessions.map((x) => x.agent));
+    assert.ok(agents.has('opencode'));
+    assert.ok(agents.has('claude'));
+    assert.equal(report.environment.agents.length, 3);
+    for (const f of report.findings) {
+      if (f.scope === 'sessions') assert.ok(f.agent, 'session findings carry agent attribution');
+    }
+    // Totals aggregate across agents without mixing attribution.
+    assert.ok(report.totals.toolCalls >= 4);
   });
   cleanup(s.dir);
 });

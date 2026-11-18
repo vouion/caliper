@@ -26,7 +26,7 @@ test('demo: exercises every v0.1 rule and labels itself synthetic', () => {
 
 test('demo: healthy sessions produce no session-scoped findings', () => {
   const report = runDemoAudit();
-  const healthy = ['demo-oc-healthy', 'demo-cx-healthy'];
+  const healthy = ['demo-oc-healthy', 'demo-cx-healthy', 'demo-cc-healthy'];
   for (const f of report.findings) {
     for (const e of f.evidence) {
       assert.ok(!healthy.includes(e.sessionId ?? ''), `healthy session flagged: ${f.ruleId}`);

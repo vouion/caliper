@@ -36,8 +36,10 @@ export function readJsonFile(file: string): unknown {
   }
   try {
     return JSON.parse(raw) as unknown;
-  } catch (err) {
-    throw new HavrinError('PARSE', `Invalid JSON in ${file}: ${errorMessage(err)}`);
+  } catch {
+    // Never include the parser's message: V8 embeds source snippets, which
+    // could carry secrets from a malformed config into warnings/reports.
+    throw new HavrinError('PARSE', `Invalid JSON in ${file}`);
   }
 }
 

@@ -22,8 +22,11 @@ function envFor(s: ReturnType<typeof setup>): Record<string, string | undefined>
   return {
     HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
     HAVRIN_CODEX_HOME: s.codexHome,
+    HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
     CODEX_HOME: undefined,
+    CLAUDE_CONFIG_DIR: undefined,
     HOME: s.home,
+    USERPROFILE: s.home,
     XDG_CONFIG_HOME: path.join(s.home, '.config'),
   };
 }

@@ -275,7 +275,7 @@ export class OpenCodeAdapter implements AgentAdapter {
           signature: `${r.time_updated}:${r.version}`,
           directory: r.directory,
         };
-        if (r.title) meta.title = r.title;
+        if (r.title) meta.title = r.title.slice(0, 120);
         return meta;
       });
     } finally {
@@ -306,9 +306,19 @@ export class OpenCodeAdapter implements AgentAdapter {
       if (!row) throw new HavrinError('NO_DATA', `Session ${meta.id} disappeared from the database`);
 
       const events: SessionEvent[] = [];
-      const messages = db
-        .prepare('SELECT id, type, seq, time_created, data FROM session_message WHERE session_id = ? ORDER BY seq')
-        .all(meta.id) as unknown as MessageRow[];
+      // Guard against pathological sessions: message data includes full tool
+      // output JSON. Cap total volume like the JSONL adapters do.
+      const volume = db
+        .prepare('SELECT COALESCE(SUM(length(data)), 0) AS n FROM session_message WHERE session_id = ?')
+        .get(meta.id) as { n: number };
+      if (volume.n > 128 * 1024 * 1024) {
+        warn(`session message data exceeds 128MB (${volume.n} bytes); skipped for safety`);
+      }
+      const messages = volume.n > 128 * 1024 * 1024
+        ? []
+        : (db
+            .prepare('SELECT id, type, seq, time_created, data FROM session_message WHERE session_id = ? ORDER BY seq')
+            .all(meta.id) as unknown as MessageRow[]);
 
       for (const msg of messages) {
         let data: Record<string, unknown>;
@@ -357,7 +367,7 @@ export class OpenCodeAdapter implements AgentAdapter {
           signature: meta.signature,
         },
       };
-      if (row.title) record.title = row.title;
+      if (row.title) record.title = row.title.slice(0, 120);
       if (row.directory) record.directory = row.directory;
       if (model) record.model = model;
       if (row.agent) record.agentName = row.agent;

@@ -14,13 +14,14 @@ import { parse as parseToml } from 'smol-toml';
 import type { AgentId, EnvironmentInfo } from '../core/types.ts';
 import { isSecretKey, sha256 } from '../core/util.ts';
 import { isDirectory, isReadableFile, listSubdirs, readJsonFileOptional, xdgConfigHome } from '../core/fs.ts';
-import { errorMessage } from '../core/errors.ts';
 import { opencodeConfigDir } from '../adapters/opencode.ts';
 import { codexHome } from '../adapters/codex.ts';
+import { claudeHome } from '../adapters/claude.ts';
 
 const INSTRUCTION_BASENAMES = [
   'AGENTS.md',
   'CLAUDE.md',
+  'CLAUDE.local.md',
   '.cursorrules',
   '.windsurfrules',
   'GEMINI.md',
@@ -45,6 +46,7 @@ export function scanEnvironment(opts: EnvironmentScanOptions = {}): EnvironmentI
 
   scanOpenCodeConfig(info);
   scanCodexConfig(info);
+  scanClaudeConfig(info, projectDir);
   scanSkills(info, projectDir);
   scanInstructionFiles(info, projectDir);
   return info;
@@ -56,8 +58,9 @@ function scanOpenCodeConfig(info: EnvironmentInfo): void {
   let config: unknown;
   try {
     config = readJsonFileOptional(configPath);
-  } catch (err) {
-    info.warnings.push(`OpenCode config unreadable: ${errorMessage(err)}`);
+  } catch {
+    // Parser messages can embed source snippets (potentially secrets).
+    info.warnings.push(`OpenCode config at ${configPath} is not valid JSON; skipped`);
     return;
   }
   if (config === undefined) return;
@@ -104,7 +107,12 @@ function scanCodexConfig(info: EnvironmentInfo): void {
   try {
     config = parseToml(fs.readFileSync(configPath, 'utf8'));
   } catch (err) {
-    info.warnings.push(`Codex config.toml unreadable: ${errorMessage(err)}`);
+    // smol-toml error messages embed up to 3 source lines verbatim — never
+    // propagate them. Position only is safe.
+    const pos = err as { line?: number; column?: number };
+    const where =
+      typeof pos.line === 'number' ? ` near line ${pos.line}${typeof pos.column === 'number' ? `:${pos.column}` : ''}` : '';
+    info.warnings.push(`Codex config.toml at ${configPath} is not valid TOML${where}; skipped`);
     return;
   }
   const rec = asRecord(config);
@@ -118,11 +126,48 @@ function scanCodexConfig(info: EnvironmentInfo): void {
   }
 }
 
+/**
+ * Claude Code config surface. settings.json is scanned structurally for
+ * secret exposures only. MCP servers live in project-level .mcp.json
+ * (scanned) and in ~/.claude.json — which is NEVER opened because it holds
+ * account/auth data. Global MCP servers are therefore out of scope.
+ */
+function scanClaudeConfig(info: EnvironmentInfo, projectDir: string): void {
+  const settingsPath = path.join(claudeHome(), 'settings.json');
+  if (isReadableFile(settingsPath)) {
+    try {
+      const config = readJsonFileOptional(settingsPath);
+      const rec = asRecord(config);
+      if (rec) findSecretKeys(rec, '', settingsPath, info);
+      else info.warnings.push('Claude settings.json is not a JSON object');
+    } catch {
+      info.warnings.push(`Claude settings.json at ${settingsPath} is not valid JSON; skipped`);
+    }
+  }
+  const mcpPath = path.join(projectDir, '.mcp.json');
+  if (isReadableFile(mcpPath)) {
+    try {
+      const config = readJsonFileOptional(mcpPath);
+      const rec = asRecord(config);
+      if (rec) {
+        findSecretKeys(rec, '', mcpPath, info);
+        const servers = asRecord(rec['mcpServers']);
+        const names = Object.keys(servers ?? {}).sort();
+        if (names.length > 0) info.mcpServers.push({ agent: 'claude', configPath: mcpPath, names });
+      }
+    } catch {
+      info.warnings.push(`Project .mcp.json at ${mcpPath} is not valid JSON; skipped`);
+    }
+  }
+}
+
 function scanSkills(info: EnvironmentInfo, projectDir: string): void {
   const candidates: { agent: AgentId | 'shared'; dir: string }[] = [
     { agent: 'opencode', dir: path.join(opencodeConfigDir(), 'skills') },
     { agent: 'opencode', dir: path.join(projectDir, '.opencode', 'skills') },
     { agent: 'codex', dir: path.join(codexHome(), 'skills') },
+    { agent: 'claude', dir: path.join(claudeHome(), 'skills') },
+    { agent: 'claude', dir: path.join(projectDir, '.claude', 'skills') },
     { agent: 'shared', dir: path.join(process.env['HOME'] ?? '', '.agents', 'skills') },
   ];
   for (const c of candidates) addSkillDir(info, c.agent, c.dir);
@@ -139,7 +184,7 @@ function scanInstructionFiles(info: EnvironmentInfo, projectDir: string): void {
   const candidates = [
     path.join(xdgConfigHome(), 'opencode', 'AGENTS.md'),
     path.join(codexHome(), 'AGENTS.md'),
-    path.join(process.env['HOME'] ?? '', '.claude', 'CLAUDE.md'),
+    path.join(claudeHome(), 'CLAUDE.md'),
     ...INSTRUCTION_BASENAMES.map((name) => path.join(projectDir, name)),
   ];
   const seen = new Set<string>();

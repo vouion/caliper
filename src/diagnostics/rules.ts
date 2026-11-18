@@ -65,7 +65,9 @@ const repeatedToolFailures: Rule = {
       const repeated = [...groups.values()].filter((g) => g.count >= 2).sort((a, b) => b.count - a.count);
       if (repeated.length === 0) continue;
       const total = repeated.reduce((n, g) => n + g.count, 0);
-      const allHeuristic = repeated.every((g) => g.heuristic === g.count);
+      // Any heuristic evidence caps confidence: mixed signals are not stronger
+      // than their weakest link.
+      const anyHeuristic = repeated.some((g) => g.heuristic > 0);
       const evidence: Evidence[] = repeated.slice(0, 5).map((g) => {
         const e: Evidence = {
           description: `Tool "${g.name}" failed ${g.count}× with identical input${g.sample ? ` (e.g. ${g.sample})` : ''}`,
@@ -80,7 +82,7 @@ const repeatedToolFailures: Rule = {
         ruleId: 'repeated-tool-failures',
         title: `Repeated identical tool failures in ${sessionLabel(session)}`,
         severity: total >= 5 ? 'high' : 'medium',
-        confidence: allHeuristic ? 'medium' : 'high',
+        confidence: anyHeuristic ? 'medium' : 'high',
         scope: 'sessions',
         agent: session.agent,
         evidence,
@@ -111,10 +113,12 @@ const retryLoops: Rule = {
       let runStart = 0;
       let bestRun = 0;
       let bestName = '';
+      let bestStart = 0;
       const flush = () => {
         if (runLen >= 3 && runLen > bestRun) {
           bestRun = runLen;
           bestName = runKey.split('\u0000')[0] ?? '';
+          bestStart = runStart;
         }
       };
       for (const { tool, at } of iterTools(session)) {
@@ -142,7 +146,7 @@ const retryLoops: Rule = {
           description: `Tool "${bestName}" called ${bestRun}× consecutively with identical input`,
           sessionId: session.id,
           agent: session.agent,
-          at: runStart,
+          at: bestStart,
           value: bestRun,
         });
       }
@@ -151,7 +155,10 @@ const retryLoops: Rule = {
       let retryTotal = 0;
       for (const ev of session.events) {
         if (ev.kind !== 'assistant') continue;
-        if (ev.error || (ev.retries ?? 0) > 0) {
+        // Synthetic placeholders (e.g. Claude Code "<synthetic>" no-response
+        // markers) are not real failures; counting them fabricates loops.
+        const realError = ev.error !== undefined && ev.error.type !== 'synthetic';
+        if (realError || (ev.retries ?? 0) > 0) {
           consecutiveErrors++;
           maxConsecutiveErrors = Math.max(maxConsecutiveErrors, consecutiveErrors);
         } else {
@@ -284,7 +291,9 @@ const missingTestVerification: Rule = {
       for (const ev of session.events) if (ev.kind === 'assistant') assistantTurns++;
       for (const { tool } of iterTools(session)) {
         if (isWriteTool(tool.name) && tool.status === 'completed') writes++;
-        if (tool.commandCategory === 'test' && tool.status !== 'error') tests++;
+        // Verification activity counts regardless of outcome: a failed test
+        // run is still a test run. Success is a separate concern.
+        if (tool.commandCategory === 'test') tests++;
       }
       if (writes < 3 || tests > 0 || assistantTurns < 3) continue;
       findings.push({
@@ -354,9 +363,10 @@ const contextCompactionPressure: Rule = {
 /**
  * Rule: unused-mcp-servers
  * Configured MCP servers with no matching tool calls in any analyzed session.
- * OpenCode exposes MCP tools as "<server>_<tool>"; matching is prefix-based.
- * Medium confidence: naming convention is inferred, and absence of use in the
- * analyzed window is not proof of never using the server.
+ * OpenCode exposes MCP tools as "<server>_<tool>"; Claude Code as
+ * "mcp__<server>__<tool>". Matching is prefix-based. Medium confidence:
+ * naming conventions are inferred, and absence of use in the analyzed window
+ * is not proof of never using the server.
  */
 const unusedMcpServers: Rule = {
   id: 'unused-mcp-servers',
@@ -374,7 +384,14 @@ const unusedMcpServers: Rule = {
     const findings: Finding[] = [];
     for (const group of environment.mcpServers) {
       const unused = group.names.filter(
-        (name) => ![...toolNames].some((t) => t === name || t.startsWith(`${name}_`) || t.startsWith(`${name}-`)),
+        (name) =>
+          ![...toolNames].some(
+            (t) =>
+              t === name ||
+              t.startsWith(`${name}_`) ||
+              t.startsWith(`${name}-`) ||
+              t.startsWith(`mcp__${name}__`),
+          ),
       );
       if (unused.length === 0) continue;
       findings.push({

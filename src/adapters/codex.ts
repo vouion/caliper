@@ -22,11 +22,12 @@ import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { HavrinError, errorMessage } from '../core/errors.ts';
 import { fingerprint } from '../core/util.ts';
-import { classifyCommand } from '../core/classify.ts';
+import { classifyCommand, commandFromInput } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
 
 const MAX_ROLLOUT_BYTES = 128 * 1024 * 1024;
 const MAX_PARSE_WARNINGS = 20;
+const HEAD_BYTES = 64 * 1024;
 const ROLLOUT_RE = /^rollout-.*\.jsonl$/;
 
 export function codexHome(): string {
@@ -174,6 +175,7 @@ export class CodexAdapter implements AgentAdapter {
 
     const titles = this.readSessionIndex();
     const metas: SessionMeta[] = [];
+    const seen = new Map<string, number>();
     for (const file of files) {
       let stat: fs.Stats;
       try {
@@ -183,7 +185,7 @@ export class CodexAdapter implements AgentAdapter {
       }
       const first = readFirstLine(file);
       let id = path.basename(file, '.jsonl');
-      let createdAt = stat.mtimeMs;
+      let createdAt = Math.floor(stat.mtimeMs);
       let directory: string | undefined;
       const meta = first ? asRecord(asRecord(first)?.['payload']) : undefined;
       if (meta) {
@@ -194,13 +196,24 @@ export class CodexAdapter implements AgentAdapter {
       const m: SessionMeta = {
         id,
         createdAt,
-        updatedAt: stat.mtimeMs,
+        // Floor to integer ms: Date.now() truncates, and a raw fractional
+        // mtime can exceed the audit's `until` for just-written files.
+        updatedAt: Math.floor(stat.mtimeMs),
         signature: `${stat.mtimeMs}:${stat.size}`,
       };
       const title = titles.get(id);
-      if (title) m.title = title;
+      if (title) m.title = title.slice(0, 120);
       if (directory) m.directory = directory;
-      // Keep the rollout path retrievable from the id without a second walk.
+      const existing = seen.get(id);
+      if (existing !== undefined) {
+        // Duplicate session id (resume/fork): keep the most recently updated.
+        const prev = metas[existing];
+        if (prev && prev.updatedAt >= m.updatedAt) continue;
+        metas[existing] = m;
+        rolloutPathById.set(id, file);
+        continue;
+      }
+      seen.set(id, metas.length);
       rolloutPathById.set(id, file);
       metas.push(m);
     }
@@ -409,10 +422,11 @@ export class CodexAdapter implements AgentAdapter {
       }
     }
 
-    // Calls never matched by an output (interrupted sessions): status unknown.
+    // Calls never matched by an output (interrupted sessions): status unknown
+    // unless the agent already reported a failure.
     for (const call of pending.values()) {
       const tool = this.buildToolCall(call, undefined);
-      tool.status = 'unknown';
+      if (tool.status !== 'error') tool.status = 'unknown';
       events.push({ kind: 'tool', at: call.at, tool });
     }
     events.sort((a, b) => a.at - b.at);
@@ -445,7 +459,10 @@ export class CodexAdapter implements AgentAdapter {
       startedAt: call.at,
     };
     if (call.name === 'exec' || call.name === 'shell' || call.name === 'local_shell') {
-      tool.commandCategory = classifyCommand(call.rawInput);
+      // function_call inputs are JSON ({"command":[...]}); unwrap before
+      // classifying. custom_tool_call inputs are raw script text.
+      const command = commandFromInput(call.input) ?? call.rawInput;
+      tool.commandCategory = classifyCommand(command);
     } else if (call.name === 'apply_patch') {
       const m = /^\*\*\* (?:Update|Add|Delete) File: (.+)$/m.exec(call.rawInput);
       if (m?.[1]) tool.targetPath = m[1].trim();
@@ -498,7 +515,7 @@ function readFirstLine(file: string): unknown | undefined {
   let fd: number | undefined;
   try {
     fd = fs.openSync(file, 'r');
-    const buf = Buffer.alloc(16 * 1024);
+    const buf = Buffer.alloc(HEAD_BYTES);
     const bytes = fs.readSync(fd, buf, 0, buf.length, 0);
     const text = buf.subarray(0, bytes).toString('utf8');
     const nl = text.indexOf('\n');

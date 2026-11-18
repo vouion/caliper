@@ -47,12 +47,15 @@ export function redactSecrets(text: string): string {
 export function sanitizeErrorMessage(message: unknown, max = 200): string | undefined {
   if (typeof message !== 'string' || message.length === 0) return undefined;
   const oneLine = message.replace(/\s+/g, ' ').trim();
-  const cut = oneLine.length > max ? oneLine.slice(0, max) + '…' : oneLine;
-  return redactSecrets(cut);
+  // Redact BEFORE truncating: a secret straddling the cut boundary would
+  // otherwise survive as a partial prefix that no longer matches the shapes.
+  const redacted = redactSecrets(oneLine);
+  return redacted.length > max ? redacted.slice(0, max) + '…' : redacted;
 }
 
 /** Keys whose VALUES must never be reported, even structurally. */
-const SECRET_KEY_RE = /(api[_-]?key|secret|token|password|passwd|credential|private[_-]?key|access[_-]?key|auth)/i;
+const SECRET_KEY_RE =
+  /(api[_-]?key|secret|token|password|passwd|credential|private[_-]?key|access[_-]?key|authorization|authentication|auth[_-]?token|oauth)/i;
 
 export function isSecretKey(key: string): boolean {
   return SECRET_KEY_RE.test(key);
@@ -60,11 +63,12 @@ export function isSecretKey(key: string): boolean {
 
 /** Parse relative durations like "30d", "12h", "90m", "7d12h" into ms. */
 export function parseDuration(input: string): number | undefined {
+  const trimmed = input.trim();
   const re = /(\d+)\s*([dhms])/gi;
   let total = 0;
   let matched = false;
   let lastIndex = 0;
-  for (const m of input.matchAll(re)) {
+  for (const m of trimmed.matchAll(re)) {
     if (m.index !== lastIndex) return undefined;
     const n = Number(m[1]);
     const unit = m[2]?.toLowerCase();
@@ -74,7 +78,7 @@ export function parseDuration(input: string): number | undefined {
     matched = true;
     lastIndex = m.index + m[0].length;
   }
-  if (!matched || lastIndex !== input.trim().length) return undefined;
+  if (!matched || lastIndex !== trimmed.length) return undefined;
   return total;
 }
 

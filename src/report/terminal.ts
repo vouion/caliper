@@ -43,28 +43,42 @@ class Painter {
   cyan = (t: string) => this.code(36, t);
 }
 
+const ANSI_RE = /\u001b\[[0-9;]*m/g;
+
 function wrap(text: string, width: number, indent = ''): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = '';
-  const max = Math.max(20, width - indent.length);
-  for (const word of words) {
+  // Indents may contain ANSI escapes; budget by visible width only.
+  const visibleIndent = indent.replace(ANSI_RE, '').length;
+  const max = Math.max(20, width - visibleIndent);
+  const pushLine = (l: string) => lines.push(indent + l);
+  for (let word of words) {
+    // Hard-break unbreakable words (long paths/URLs) instead of overflowing.
+    while (word.length > max) {
+      if (line.length > 0) {
+        pushLine(line);
+        line = '';
+      }
+      pushLine(word.slice(0, max));
+      word = word.slice(max);
+    }
     if (line.length === 0) {
       line = word;
     } else if (line.length + 1 + word.length <= max) {
       line += ' ' + word;
     } else {
-      lines.push(indent + line);
+      pushLine(line);
       line = word;
     }
   }
-  if (line) lines.push(indent + line);
+  if (line) pushLine(line);
   return lines;
 }
 
 /** Wrap with a label on the first line only; continuation lines align. */
 function labeled(label: string, text: string, width: number, baseIndent: string): string[] {
-  const visibleLabel = label.replace(/\u001b\[[0-9;]*m/g, '');
+  const visibleLabel = label.replace(ANSI_RE, '');
   const firstPrefix = baseIndent + label;
   const contIndent = baseIndent + ' '.repeat(visibleLabel.length);
   const lines = wrap(text, width, contIndent);
@@ -118,7 +132,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   push(p.bold('COVERAGE'));
   const c = report.coverage;
   push(`  sessions discovered ${c.sessionsDiscovered} · analyzed ${c.sessionsAnalyzed} · from cache ${c.sessionsFromCache}`);
-  push(p.dim(`  skipped: ${c.sessionsSkippedWindow} outside window, ${c.sessionsSkippedLimit} over limit · partial parses: ${c.partialSessions}`));
+  push(p.dim(`  skipped: ${c.sessionsSkippedWindow} outside window, ${c.sessionsSkippedLimit} over limit, ${c.sessionsFailedRead} failed reads · partial parses: ${c.partialSessions}`));
   if (c.sessionsAnalyzed === 0) {
     push('');
     push(p.yellow(p.bold('  No session data was analyzed.')));
@@ -140,6 +154,21 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
     const t = report.totals;
     push(`  tokens: input ${formatTokens(t.tokens.input)} · output ${formatTokens(t.tokens.output)} · reasoning ${formatTokens(t.tokens.reasoning)} · cache read ${formatTokens(t.tokens.cacheRead)} · cache write ${formatTokens(t.tokens.cacheWrite)}`);
     push(`  reported cost: ${formatCost(t.cost)} · tool calls: ${t.toolCalls} (${t.toolErrors} errors) · turns: ${t.userTurns} user / ${t.assistantTurns} assistant`);
+    let subTurns = 0;
+    let subTools = 0;
+    let subErrors = 0;
+    let sawSub = false;
+    for (const s of report.sessions) {
+      if (s.subagentStats) {
+        sawSub = true;
+        subTurns += s.subagentStats.turns;
+        subTools += s.subagentStats.toolCalls;
+        subErrors += s.subagentStats.toolErrors;
+      }
+    }
+    if (sawSub) {
+      push(`  subagents (sidechains): ${subTurns} turns · ${subTools} tool calls (${subErrors} errors)`);
+    }
     if (t.cost === 0) push(p.dim('  cost is agent-reported; $0.00 may mean pricing was unavailable, not free usage.'));
     push('');
   }

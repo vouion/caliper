@@ -14,12 +14,13 @@ import type {
 import type { AgentAdapter } from './adapters/adapter.ts';
 import { OpenCodeAdapter } from './adapters/opencode.ts';
 import { CodexAdapter } from './adapters/codex.ts';
+import { ClaudeAdapter } from './adapters/claude.ts';
 import { scanEnvironment } from './env/environment.ts';
 import { assembleReport } from './report/assemble.ts';
 import { loadCache, saveCache, saveLastAudit } from './store.ts';
 import { errorMessage } from './core/errors.ts';
 
-export const ADAPTERS: AgentAdapter[] = [new OpenCodeAdapter(), new CodexAdapter()];
+export const ADAPTERS: AgentAdapter[] = [new OpenCodeAdapter(), new CodexAdapter(), new ClaudeAdapter()];
 
 export interface AuditOptions {
   /** Restrict to specific agents. Default: all supported. */
@@ -62,6 +63,7 @@ export function runAudit(opts: AuditOptions = {}): AuditOutcome {
     sessionsAnalyzed: 0,
     sessionsSkippedWindow: 0,
     sessionsSkippedLimit: 0,
+    sessionsFailedRead: 0,
     sessionsFromCache: 0,
     partialSessions: 0,
     parseWarnings: [],
@@ -76,7 +78,12 @@ export function runAudit(opts: AuditOptions = {}): AuditOutcome {
     }
     installations.push(installation);
     for (const issue of installation.issues) notices.push(`[${adapter.id}] ${issue}`);
-    if (installation.layout !== 'sqlite-v2' && installation.layout !== 'jsonl-rollout') continue;
+    if (
+      installation.layout !== 'sqlite-v2' &&
+      installation.layout !== 'jsonl-rollout' &&
+      installation.layout !== 'jsonl-projects'
+    )
+      continue;
 
     let metas;
     try {
@@ -103,6 +110,7 @@ export function runAudit(opts: AuditOptions = {}): AuditOutcome {
         try {
           record = adapter.readSession(installation, meta);
         } catch (err) {
+          coverage.sessionsFailedRead++;
           notices.push(`[${adapter.id}] session ${meta.id} skipped: ${errorMessage(err)}`);
           continue;
         }

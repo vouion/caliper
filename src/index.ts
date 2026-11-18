@@ -10,6 +10,7 @@ export { RULES, runDiagnostics } from './diagnostics/rules.ts';
 export type { Rule, RuleContext } from './diagnostics/rules.ts';
 export { OpenCodeAdapter } from './adapters/opencode.ts';
 export { CodexAdapter } from './adapters/codex.ts';
+export { ClaudeAdapter } from './adapters/claude.ts';
 export type { AgentAdapter, SessionMeta } from './adapters/adapter.ts';
 export { HAVRIN_VERSION } from './version.ts';
 export * from './core/types.ts';

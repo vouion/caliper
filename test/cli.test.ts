@@ -52,7 +52,10 @@ function fixtureEnv(): { env: Record<string, string>; dir: string } {
     HAVRIN_OPENCODE_DATA_DIR: dataDir,
     HAVRIN_OPENCODE_CONFIG_DIR: ocConfig,
     HAVRIN_CODEX_HOME: path.join(dir, 'no-codex'),
+    HAVRIN_CLAUDE_HOME: path.join(dir, 'no-claude'),
+    CLAUDE_CONFIG_DIR: '',
     HOME: home,
+    USERPROFILE: home,
     XDG_CONFIG_HOME: path.join(home, '.config'),
     NO_COLOR: '1',
   };
@@ -96,9 +99,15 @@ test('cli: invalid --since exits 2 with hint', () => {
 });
 
 test('cli: invalid --agent exits 2', () => {
-  const r = runCli(['audit', '--agent', 'claude'], {});
+  const r = runCli(['audit', '--agent', 'gemini'], {});
   assert.equal(r.status, 2);
   assert.ok(r.stderr.includes('Unknown agent'));
+});
+
+test('cli: --all and --since conflict exits 2', () => {
+  const r = runCli(['audit', '--all', '--since', '7d'], {});
+  assert.equal(r.status, 2);
+  assert.ok(r.stderr.includes('mutually exclusive'));
 });
 
 test('cli: report without prior audit exits 1 with NO_AUDIT', () => {
@@ -161,6 +170,17 @@ test('cli: audit terminal report renders without color under NO_COLOR', () => {
   cleanup(dir);
 });
 
+test('cli: report --json is an alias for --format json', () => {
+  const { env, dir } = fixtureEnv();
+  const audit = runCli(['audit', '--json'], env);
+  assert.equal(audit.status, 0);
+  const viaAlias = runCli(['report', '--json'], env);
+  assert.equal(viaAlias.status, 0);
+  const report = JSON.parse(viaAlias.stdout);
+  assert.equal(report.schemaVersion, '1');
+  cleanup(dir);
+});
+
 test('cli: doctor passes with fixture data and fails nothing critical', () => {
   const { env, dir } = fixtureEnv();
   const r = runCli(['doctor'], env);
@@ -177,7 +197,10 @@ test('cli: audit with no data communicates clearly and exits 0', () => {
     HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'none'),
     HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
     HAVRIN_CODEX_HOME: path.join(dir, 'none'),
+    HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+    CLAUDE_CONFIG_DIR: '',
     HOME: path.join(dir, 'none-home'),
+    USERPROFILE: path.join(dir, 'none-home'),
     XDG_CONFIG_HOME: path.join(dir, 'none-xdg'),
     NO_COLOR: '1',
   });

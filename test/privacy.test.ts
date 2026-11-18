@@ -91,8 +91,11 @@ test('audit report contains no secrets, user text, tool output, or raw input', (
       HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
       HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
       HAVRIN_CODEX_HOME: s.codexHome,
+      HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
       CODEX_HOME: undefined,
+      CLAUDE_CONFIG_DIR: undefined,
       HOME: s.home,
+      USERPROFILE: s.home,
       XDG_CONFIG_HOME: path.join(s.home, '.config'),
     },
     () => {
@@ -129,8 +132,11 @@ test('state files are written with restrictive permissions', () => {
       HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
       HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
       HAVRIN_CODEX_HOME: s.codexHome,
+      HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
       CODEX_HOME: undefined,
+      CLAUDE_CONFIG_DIR: undefined,
       HOME: s.home,
+      USERPROFILE: s.home,
       XDG_CONFIG_HOME: path.join(s.home, '.config'),
     },
     () => {

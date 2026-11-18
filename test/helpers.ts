@@ -192,3 +192,139 @@ export function withEnv<T>(overrides: Record<string, string | undefined>, fn: ()
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Claude Code fixtures (shape verified against Claude Code 2.1.x transcripts)
+// ---------------------------------------------------------------------------
+
+export function writeClaudeTranscript(
+  home: string,
+  projectSlug: string,
+  sessionId: string,
+  lines: unknown[],
+): string {
+  const dir = path.join(home, 'projects', projectSlug);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${sessionId}.jsonl`);
+  fs.writeFileSync(file, lines.map((l) => (typeof l === 'string' ? l : JSON.stringify(l))).join('\n') + '\n');
+  return file;
+}
+
+let ccUuid = 0;
+
+export function ccBase(type: string, at = '2026-11-10T10:00:00.000Z', extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type,
+    uuid: `cc-uuid-${ccUuid++}`,
+    parentUuid: null,
+    sessionId: 'cc-session-fixture',
+    timestamp: at,
+    cwd: '/fixture/project',
+    version: '2.1.327',
+    gitBranch: 'main',
+    isSidechain: false,
+    userType: 'external',
+    entrypoint: 'cli',
+    ...extra,
+  };
+}
+
+export function ccUserText(text: string, at?: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  return ccBase('user', at, { message: { role: 'user', content: text }, ...extra });
+}
+
+export function ccAssistant(opts: {
+  messageId: string;
+  model?: string;
+  blocks: unknown[];
+  usage?: Record<string, unknown>;
+  at?: string;
+  sidechain?: boolean;
+  apiBlockIndex?: number;
+}): Record<string, unknown> {
+  return ccBase('assistant', opts.at, {
+    isSidechain: opts.sidechain ?? false,
+    requestId: `req_${opts.messageId}`,
+    message: {
+      id: opts.messageId,
+      type: 'message',
+      role: 'assistant',
+      model: opts.model ?? 'claude-fixture-5',
+      content: opts.blocks,
+      stop_reason: 'end_turn',
+      usage: opts.usage ?? {
+        input_tokens: 10,
+        output_tokens: 50,
+        cache_creation_input_tokens: 100,
+        cache_read_input_tokens: 1000,
+        output_tokens_details: { thinking_tokens: 20 },
+      },
+    },
+  });
+}
+
+export function ccToolUse(id: string, name: string, input: unknown): Record<string, unknown> {
+  return { type: 'tool_use', id, name, input };
+}
+
+export function ccToolResult(opts: {
+  toolUseId: string;
+  isError?: boolean;
+  content?: unknown;
+  toolUseResult?: Record<string, unknown>;
+  at?: string;
+  sidechain?: boolean;
+}): Record<string, unknown> {
+  const rec = ccBase('user', opts.at, {
+    isSidechain: opts.sidechain ?? false,
+    message: {
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: opts.toolUseId,
+          content: opts.content ?? 'output text',
+          ...(opts.isError ? { is_error: true } : {}),
+        },
+      ],
+    },
+  });
+  if (opts.toolUseResult) rec['toolUseResult'] = opts.toolUseResult;
+  return rec;
+}
+
+export function ccCompactBoundary(at?: string, trigger = 'auto'): Record<string, unknown> {
+  return ccBase('system', at, {
+    subtype: 'compact_boundary',
+    content: 'compacted',
+    level: 'info',
+    compactMetadata: { trigger, preTokens: 150000, postTokens: 20000 },
+  });
+}
+
+export function ccCostState(opts: {
+  costUSD?: number;
+  hasUnknownModelCost?: boolean;
+  modelUsage?: Record<string, unknown>;
+}): Record<string, unknown> {
+  return {
+    type: 'cost-state',
+    sessionId: 'cc-session-fixture',
+    totalCostUSD: opts.costUSD ?? 1.25,
+    hasUnknownModelCost: opts.hasUnknownModelCost ?? false,
+    totalDuration: 60000,
+    totalAPIDuration: 30000,
+    totalToolDuration: 10000,
+    modelUsage: opts.modelUsage ?? {
+      'claude-fixture-5': {
+        inputTokens: 100,
+        outputTokens: 500,
+        thinkingTokens: 200,
+        cacheReadInputTokens: 10000,
+        cacheCreationInputTokens: 1000,
+        costUSD: opts.costUSD ?? 1.25,
+      },
+    },
+  };
+}
+

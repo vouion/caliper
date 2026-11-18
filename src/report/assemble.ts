@@ -61,6 +61,8 @@ export function assembleReport(args: {
     if (s.title) summary.title = s.title;
     if (s.directory) summary.directory = s.directory;
     if (s.model) summary.model = s.model;
+    if (s.subagentStats) summary.subagentStats = s.subagentStats;
+    if (s.reportedTotals) summary.reportedTokens = s.reportedTotals;
     summaries.push(summary);
   }
   summaries.sort((a, b) => b.updatedAt - a.updatedAt);

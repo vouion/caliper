@@ -9,9 +9,12 @@
  * fingerprints, tool names, file paths targeted by file tools, and coarse
  * command categories. Truncated tool error messages are retained (tool
  * generated, secret-redacted) because they are primary diagnostic evidence.
+ * Session TITLES are the one deliberate free-text exception: they are
+ * user-derived (often LLM-summarized), truncated to 120 chars, and disclosed
+ * as a residual risk in docs/PRIVACY.md.
  */
 
-export type AgentId = 'opencode' | 'codex';
+export type AgentId = 'opencode' | 'codex' | 'claude';
 
 export interface ModelRef {
   provider: string;
@@ -133,6 +136,11 @@ export interface SessionRecord {
   /** Agent-reported aggregates (may differ from sum of parsed events). */
   reportedTotals?: TokenUsage;
   reportedCost?: number;
+  /**
+   * Subagent (sidechain) activity, when the agent exposes it.
+   * Undefined = not available from this agent's storage; NOT zero activity.
+   */
+  subagentStats?: { turns: number; toolCalls: number; toolErrors: number };
   events: SessionEvent[];
   /** True when some source rows/lines could not be parsed. */
   partial: boolean;
@@ -236,6 +244,7 @@ export interface AuditCoverage {
   sessionsAnalyzed: number;
   sessionsSkippedWindow: number;
   sessionsSkippedLimit: number;
+  sessionsFailedRead: number;
   sessionsFromCache: number;
   partialSessions: number;
   parseWarnings: string[];
@@ -273,11 +282,19 @@ export interface SessionSummary {
   updatedAt: number;
   model?: ModelRef;
   tokens: TokenUsage;
+  /**
+   * Agent-reported session totals, when available. May exceed `tokens`
+   * (e.g. Claude Code cost-state includes compaction/retry API calls that
+   * produce no transcript message). Never fabricated.
+   */
+  reportedTokens?: TokenUsage;
   cost: number;
   userTurns: number;
   assistantTurns: number;
   toolCalls: number;
   toolErrors: number;
   compactions: number;
+  /** Present only when the agent exposes sidechain data (Claude Code). */
+  subagentStats?: { turns: number; toolCalls: number; toolErrors: number };
   partial: boolean;
 }

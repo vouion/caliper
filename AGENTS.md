@@ -9,8 +9,8 @@ Havrin is a local-first CLI that analyzes AI coding-agent session data and confi
 ## Non-negotiable invariants
 
 1. **Never modify agent source data.** OpenCode's SQLite DB is opened read-only (`node:sqlite` `readOnly: true`); Codex rollouts are only read. Tests assert byte-for-byte immutability — keep them.
-2. **Never query credential tables.** In OpenCode's DB, only `session_v2`, `session_message`, `session_part` (probe), and `sqlite_master` may be queried. `account`, `control_account`, `credential`, `kv`, `permission`, etc. are off-limits.
-3. **Content-free normalized model.** `src/core/types.ts` documents the privacy contract: no user text, no tool output content, no raw tool input in `SessionRecord`, reports, cache, or logs. Fingerprints, counts, paths, categories, and redacted/truncated tool error messages only. If you need a new field, ask whether it leaks content; default to no.
+2. **Never query credential tables or open auth files.** In OpenCode's DB, only `session_v2`, `session_message`, `session_part` (probe), and `sqlite_master` may be queried. `account`, `control_account`, `credential`, `kv`, `permission`, etc. are off-limits. For Claude Code, `~/.claude.json` and `.credentials.json` must NEVER be opened (account/auth data); Codex `auth.json` likewise.
+3. **Content-free normalized model.** `src/core/types.ts` documents the privacy contract: no user text, no tool output content, no raw tool input in `SessionRecord`, reports, cache, or logs. Fingerprints, counts, paths, categories, and redacted/truncated tool error messages only. Session titles are the sole disclosed free-text exception (truncated to 120 chars). Claude-specific: never retain `toolUseResult` content fields, `api-request-blob` messages, attachments, thinking text, or identity records. If you need a new field, ask whether it leaks content; default to no. Parser exception messages must never reach warnings/reports (they embed source snippets).
 4. **No network at runtime.** v0.1 makes zero network requests. Do not add telemetry, update checks, or remote pricing without an explicit product decision.
 5. **No auto-apply.** Recommendations are instructions for humans. Configuration changes require explicit user action; Havrin v0.1 writes only to its own state dir.
 6. **Evidence before claims.** Every finding needs evidence + confidence. Never present observational results as experimentally verified (`tested` stays `false` until the experimentation engine exists).
@@ -22,6 +22,7 @@ Havrin is a local-first CLI that analyzes AI coding-agent session data and confi
 - `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess` are on. Assign optional fields conditionally; don't pass `undefined` explicitly.
 - Runtime dependencies: keep minimal. Currently only `smol-toml`. Prefer Node built-ins (`node:sqlite`, `node:test`, `util.parseArgs`, `node:crypto`).
 - Adapters (`src/adapters/`) translate storage → normalized model and nothing else. Diagnostics (`src/diagnostics/rules.ts`) consume only the normalized model. Keep that boundary.
+- Claude Code adapter: assistant records MUST be merged by `message.id` with usage counted once (split records repeat usage — naive summation inflates tokens 2–3×). `updatedAt` from file mtimes must be floored to integer ms (`Date.now()` truncates).
 - Errors: throw `HavrinError` with a code + hint for user-facing failures; adapters must degrade to `partial: true` + `parseWarnings` for malformed rows, never crash an audit.
 - Subprocesses: only fixed-argv `--version` probes, no shell, bounded timeout/output. Do not add other subprocess execution without a security review.
 
@@ -35,7 +36,7 @@ Havrin is a local-first CLI that analyzes AI coding-agent session data and confi
 
 ## Environment overrides (tests / advanced use)
 
-`HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`). Documented in `docs/ARCHITECTURE.md`. Do not rely on them in product defaults.
+`HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`), `HAVRIN_CLAUDE_HOME` (also honors `CLAUDE_CONFIG_DIR`). Documented in `docs/ARCHITECTURE.md`. Do not rely on them in product defaults. **Every test env must set all agent overrides to fixture/missing paths, set `HOME` and `USERPROFILE`, and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR`** — otherwise tests can ingest real user data.
 
 ## Workflow
 

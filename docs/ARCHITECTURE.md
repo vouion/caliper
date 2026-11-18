@@ -1,18 +1,19 @@
-# Havrin Architecture (v0.1)
+# Havrin Architecture (v0.2)
 
 ## Overview
 
-Havrin is a single-process Node.js CLI. The v0.1 pipeline is:
+Havrin is a single-process Node.js CLI. The pipeline is:
 
 ```
 detect → list → ingest (incremental) → environment scan → diagnostics → recommendations → report
 ```
 
-Six subsystems are planned long-term (Session Intelligence, Environment Intelligence, Diagnostic Engine, Software Discovery, Experimentation, Optimization). v0.1 implements the first three plus the recommendation half of Optimization. Discovery and Experimentation are deliberately absent — see ROADMAP.md.
+Six subsystems are planned long-term (Session Intelligence, Environment Intelligence, Diagnostic Engine, Software Discovery, Experimentation, Optimization). v0.2 implements the first three plus the recommendation half of Optimization, for three agents (OpenCode, Codex CLI, Claude Code). Discovery and Experimentation are deliberately absent — see ROADMAP.md.
 
 ```
 src/
-  cli.ts               Entry point: arg parsing (util.parseArgs), commands, exit codes
+  bin.ts               Version-guarded bin entry (friendly error on Node < 22.13)
+  cli.ts               Arg parsing (util.parseArgs), commands, exit codes
   audit.ts             Orchestrator: windowing, cache, coverage accounting
   doctor.ts            Read-only health checks
   store.ts             Havrin state: incremental cache + last-audit artifact (atomic, 0600)
@@ -28,6 +29,7 @@ src/
     adapter.ts         AgentAdapter interface: detect / listSessions / readSession
     opencode.ts        OpenCode SQLite adapter (verified v2.3.x)
     codex.ts           Codex JSONL rollout adapter (verified 0.169.x)
+    claude.ts          Claude Code JSONL transcript adapter (verified 2.1.308–2.1.327)
   env/
     environment.ts     Config/MCP/skills/instruction discovery; secret-exposure detection
   diagnostics/
@@ -49,7 +51,7 @@ Node's built-in `node:sqlite` reads OpenCode's database with zero native deps (t
 
 ### Normalized model as the privacy boundary
 
-Adapters translate agent-specific storage into `SessionRecord` (see `core/types.ts`). The model carries **no user text, no tool output, no raw tool input** — only counts, timestamps, tool names, target file paths, coarse command categories, sha256 input fingerprints, and truncated/redacted tool error messages. Everything downstream (rules, reports, cache) consumes only this model, so the privacy contract is enforced in one place and tested end-to-end (`test/privacy.test.ts`).
+Adapters translate agent-specific storage into `SessionRecord` (see `core/types.ts`). The model carries **no user text, no tool output, no raw tool input** — only counts, timestamps, tool names, target file paths, coarse command categories, sha256 input fingerprints, and truncated/redacted tool error messages. Session titles are the one deliberate free-text exception (user-derived, truncated to 120 chars, disclosed in PRIVACY.md). Everything downstream (rules, reports, cache) consumes only this model, so the privacy contract is enforced in one place and tested end-to-end for all three agents (`test/privacy.test.ts`, `test/claude-privacy.test.ts`).
 
 Fingerprints serve double duty: they detect byte-identical retries (the strongest stuck-loop signal) without storing inputs. Codex orphan outputs (calls predating a rollout) get unique fingerprints so they can never form false identical-input groups.
 
@@ -76,19 +78,34 @@ Adding an agent = one adapter + fixtures + registration in `ADAPTERS`. Layout pr
 
 **Codex CLI 0.169.1** — `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`:
 - Lines `{timestamp, ordinal, type, payload}`; relevant: `session_meta`, `turn_context`, `response_item` (`message`, `custom_tool_call`/`function_call` + `*_output`), `event_msg` (`turn_aborted`, …), `token_usage_record`.
-- Tool failure status is not reliably reported → inferred from output text (`"exit_code":N≠0`, `exit code N`, error markers), tagged `statusSource: 'heuristic'`; rules cap confidence accordingly.
-- `output` may be a string or content-item array; both handled. Orphan outputs with `name` are recovered.
-- `session_index.jsonl` provides titles (best-effort).
+- Tool failure status is not reliably reported → inferred from output text (`"exit_code":N≠0`, `exit code N`, error markers), tagged `statusSource: 'heuristic'`; rules cap confidence accordingly. Reported `failed`/`incomplete` call statuses are honored even without output.
+- `output` may be a string or content-item array; both handled. Orphan outputs with `name` are recovered with unique fingerprints (never form false identical-input groups).
+- `function_call` inputs are JSON (`{"command":[...]}`) and are unwrapped before command classification; `custom_tool_call` inputs are raw script text.
+- `token_usage_record.usage` is per-response (attached to the latest assistant turn without tokens); `thread_token_usage` is cumulative (used as reportedTotals).
+- Duplicate session ids across rollouts (resume/fork) are deduped to the newest file.
+- `session_index.jsonl` provides titles (best-effort, truncated to 120 chars).
+
+**Claude Code 2.1.308–2.1.327** — `~/.claude/projects/<project-slug>/<sessionId>.jsonl`:
+- Core records: `user`, `assistant`, `system` (subtypes incl. `compact_boundary`, `api_error`), `cost-state`, `ai-title`; legacy `summary` markers handled. Extended builds add many record types (`attachment`, `api-request*`, `queue-operation`, `file-history-*`, `session-owner`, `bridge-session`, `last-prompt`, …) — all ignored or reduced to structural metadata; several carry raw content or identity data and are never retained.
+- **Split-record usage dedup (critical):** one API response is written as multiple assistant records (one per content block, `apiBlockIndex`), each repeating the full `message.usage`. Verified on 5,434 real multi-record groups: usage is identical within a group. Records are merged by `message.id`; usage counted exactly once. Parsed totals cross-checked against `cost-state.modelUsage` on real sessions (ratios ≤ 1.0; gaps explained by compaction/retry API calls that produce no transcript message).
+- Tool failures are **reported**: user records carry `tool_result` blocks with `is_error`; `toolUseResult.interrupted` marks user interruptions (status `unknown`, not error). Unresolved calls (interrupted sessions) are `unknown`.
+- Token categories: `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens_details.thinking_tokens` → normalized TokenUsage. Absent usage stays undefined (unavailable ≠ zero).
+- `cost-state` (last record wins) provides agent-reported totals and `totalCostUSD`; cost is suppressed when `hasUnknownModelCost` is true. Surfaced as `reportedTokens`/`reportedCost`, never added on top of parsed totals.
+- `isSidechain` records → `subagentStats {turns, toolCalls, toolErrors}`; undefined when the agent exposes no sidechain data. Sidechain user prompts are not counted as user turns.
+- `compact_boundary.compactMetadata.trigger` → compaction reason; model changes between assistant groups → model-switch events; `<synthetic>` model messages → assistant error markers (excluded from retry-loop counting).
+- MCP tools are named `mcp__<server>__<tool>`; project MCP config comes from `.mcp.json`. Global MCP config lives in `~/.claude.json`, which is **never opened** (account/auth data) — global Claude MCP servers are therefore out of scope.
+- `~/.claude.json` and `.credentials.json` are never opened. `CLAUDE_CONFIG_DIR` is honored (official Claude Code override), then `HAVRIN_CLAUDE_HOME` for tests.
+- File naming: filename = sessionId (verified unique across 5,422 real files); defensive dedupe keeps the newest on collision. `updatedAt` is floored to integer ms because `Date.now()` truncates while `mtimeMs` is fractional (just-written files must not fall outside the audit window).
 
 These schemas are not stable contracts. Adapters parse defensively: malformed rows/lines produce `partial: true` + capped `parseWarnings`, never exceptions that abort an audit.
 
 ### Incremental ingestion
 
-`store.ts` caches normalized records per agent keyed by session id + change signature (OpenCode: `time_updated:version`; Codex: `mtimeMs:size`). Audits re-parse only changed sessions within the window; cache schema version mismatches and corruption fall back to full ingestion. Cache is capped at 500 sessions/agent (oldest evicted). `--no-cache` forces re-ingestion without destroying other entries.
+`store.ts` caches normalized records per agent keyed by session id + change signature (OpenCode: `time_updated:version`; Codex/Claude: `mtimeMs:size`). Audits re-parse only changed sessions within the window; cache schema version mismatches, syntactic corruption, and semantically invalid entries (shape-validated) fall back to full ingestion. Cache is capped at 2000 sessions/agent (oldest evicted) — sized for large active collections (verified against a 5,422-session Claude install). `--no-cache` forces re-ingestion without destroying other entries. `last-audit.json` is shape-validated on load; a corrupt artifact produces a clear NO_AUDIT error, not a crash.
 
 ### Deterministic diagnostics
 
-Rules are pure functions `(sessions, environment) → Finding[]`. Thresholds are documented in `src/diagnostics/rules.ts` and tested at boundaries. Confidence is evidence-strength, not severity: heuristic Codex errors cap at medium; `missing-test-verification` is medium because tests may run outside the session; `unused-mcp-servers` is medium because tool-name prefix matching is an inferred convention. Findings are capped per rule (5) and sorted by severity.
+Rules are pure functions `(sessions, environment) → Finding[]`. Thresholds are documented in `src/diagnostics/rules.ts` and tested at boundaries. Confidence is evidence-strength, not severity: any heuristic error evidence caps `repeated-tool-failures` at medium; `missing-test-verification` is medium because tests may run outside the session (failed test runs still count as verification activity); `unused-mcp-servers` is medium because tool-name prefix matching is an inferred convention. Synthetic assistant placeholders are excluded from error-run counting. Findings are capped per rule (5) and sorted by severity. All rules apply across all three agents via the normalized model; no Claude-specific rule was added without sufficient evidence (subagent activity is surfaced as statistics, not judgments).
 
 ### Recommendations
 
@@ -104,29 +121,37 @@ One recommendation per fired rule, with the eight mandated fields (what/why/chan
 
 - Commands: `doctor`, `audit`, `report`, `demo`, `help`, `version`.
 - Exit codes: `0` success (including "no data" audits, which explain themselves), `1` runtime failure / doctor failures, `2` usage error.
-- Structured errors: `error[CODE]: message` + `hint:` on stderr.
-- `audit` flags: `--agent` (repeatable), `--since <dur>`, `--all`, `--limit <1..1000>`, `--no-cache`, `--project <dir>`, `--json`.
+- Structured errors: `error[CODE]: message` + `hint:` on stderr. Parser exception messages are never propagated (they can embed source content).
+- `audit` flags: `--agent opencode|codex|claude` (repeatable), `--since <dur>`, `--all` (mutually exclusive with `--since`), `--limit <1..1000>`, `--no-cache`, `--project <dir>`, `--json`.
+- `report` flags: `--format json|terminal`; `--json` is an alias for `--format json`.
+- Coverage accounting: `discovered = analyzed + skippedWindow + skippedLimit + failedReads`.
+- The published bin (`dist/bin.js`) checks the Node version before loading the CLI, so unsupported runtimes get a clear message instead of a module-load stack.
 
 ## State & environment overrides
 
-State dir: `$HAVRIN_HOME` → `$XDG_DATA_HOME/havrin` → `~/.local/share/havrin`. Contains `last-audit.json` and `cache/{opencode,codex}.json`, all `0600`, atomic writes.
+State dir: `$HAVRIN_HOME` → `$XDG_DATA_HOME/havrin` → `~/.local/share/havrin`. Contains `last-audit.json` and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
 
-Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (adapter also honors Codex's own `CODEX_HOME`).
+Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`), `HAVRIN_CLAUDE_HOME` (also honors `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
 
 ## Subprocess policy
 
-The only subprocess execution is `<agent-binary> --version` during detection: fixed argv, no shell, 8s timeout, 64KB output cap, stderr discarded. PATH lookup itself is pure filesystem inspection.
+The only subprocess execution is `<agent-binary> --version` during detection (opencode, codex, claude): fixed argv, no shell, 8s timeout, 64KB output cap, stderr discarded. PATH lookup itself is pure filesystem inspection.
 
 ## Testing
 
-`node:test` (no framework dependency): 76 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), both adapters against synthetic fixtures (including malformed data, read-only immutability, orphan outputs, archived sessions), environment scanning, end-to-end audit (windowing, limit, cache hit/miss/invalidations, corrupt cache), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR), demo determinism + rule coverage, and the privacy contract over report/artifact/cache.
+`node:test` (no framework dependency): 131 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, and the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type).
 
-## Known limitations (v0.1)
+Real-world integration verified separately against installed OpenCode 2.3.1 (258 sessions), Codex 0.169.1 (25 rollouts), and Claude Code 2.1.327 (5,422 transcripts, 1.81 GB): discovery, ingestion, diagnostics, caching, and benchmarking (see README performance table).
+
+## Known limitations (v0.2)
 
 - OpenCode legacy JSON storage unsupported (detected + reported).
 - Codex tool-error detection is heuristic; some failures and some tool types are invisible.
 - Shell command classification is regex-based and conservative (false negatives expected).
-- MCP usage attribution relies on the `<server>_<tool>` naming convention.
+- MCP usage attribution relies on naming conventions (`server_tool`, `mcp__server__tool`).
+- Claude global MCP servers (in `~/.claude.json`) are out of scope because that file holds auth data; only project `.mcp.json` is scanned.
+- Claude `cost-state` totals can exceed transcript-parsed tokens (compaction/retry API calls produce no transcript message); both figures are reported separately.
+- Transcripts/message volumes >128 MB are skipped with explicit warnings.
 - Instruction-file *conflict* detection is limited to skill-id collisions; semantic conflict analysis of instruction content is future work (and must remain content-local).
 - Project-level `opencode.json` / `.opencode/` config (MCP servers, providers) is not yet scanned; only global config + project instruction files/skills.
 - Cost figures are agent-reported; $0.00 may mean unavailable pricing.

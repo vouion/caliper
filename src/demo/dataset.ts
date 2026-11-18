@@ -48,7 +48,7 @@ function user(at: number, id: string): SessionEvent {
 }
 
 function session(args: {
-  agent: 'opencode' | 'codex';
+  agent: 'opencode' | 'codex' | 'claude';
   id: string;
   title: string;
   start: number;
@@ -186,6 +186,48 @@ export function demoSessions(): SessionRecord[] {
     sessions.push(session({ agent: 'codex', id: 'demo-cx-healthy', title: 'Demo: verified patch', start: BASE + 300 * MIN, events }));
   }
 
+  // 7. Claude Code stuck Bash loop (tool_result.is_error failures).
+  {
+    const bashInput = { command: 'npm run migrate:prod', description: 'run migrations' };
+    const events: SessionEvent[] = [user(BASE + 360 * MIN, 'demo-u7')];
+    for (let i = 0; i < 3; i++) {
+      events.push(
+        assistant(BASE + (361 + i) * MIN, `demo-g${i}`, [
+          tool({
+            name: 'Bash',
+            input: bashInput,
+            status: 'error',
+            commandCategory: classifyCommand('npm run migrate:prod'),
+            errorType: 'tool_result.is_error',
+          }),
+        ]),
+      );
+    }
+    sessions.push(session({ agent: 'claude', id: 'demo-cc-stuck-bash', title: 'Demo: failing migration loop', start: BASE + 360 * MIN, events }));
+  }
+
+  // 8. Claude Code healthy session with a subagent sidechain.
+  {
+    const events: SessionEvent[] = [
+      user(BASE + 420 * MIN, 'demo-u8'),
+      assistant(BASE + 421 * MIN, 'demo-h0', [
+        tool({ name: 'Read', input: { file_path: '/demo/project/src/app.ts' }, targetPath: '/demo/project/src/app.ts' }),
+      ]),
+      assistant(BASE + 422 * MIN, 'demo-h1', [
+        tool({ name: 'Edit', input: { file_path: '/demo/project/src/app.ts', old_string: 'a', new_string: 'b' }, targetPath: '/demo/project/src/app.ts' }),
+        tool({ name: 'Bash', input: { command: 'npm test' }, commandCategory: 'test' }),
+      ]),
+      // Sidechain turn (subagent) — represented as a normal assistant event;
+      // subagentStats on the record carries the aggregate.
+      assistant(BASE + 423 * MIN, 'demo-h2', [
+        tool({ name: 'Bash', input: { command: 'grep -rn TODO src/' }, commandCategory: 'search' }),
+      ]),
+    ];
+    const rec = session({ agent: 'claude', id: 'demo-cc-healthy', title: 'Demo: verified edit with subagent', start: BASE + 420 * MIN, events });
+    rec.subagentStats = { turns: 1, toolCalls: 1, toolErrors: 0 };
+    sessions.push(rec);
+  }
+
   return sessions;
 }
 
@@ -194,9 +236,11 @@ export function demoEnvironment(): EnvironmentInfo {
     agents: [
       { agent: 'opencode', version: '2.3.1 (demo)', dataDir: 'synthetic-demo', layout: 'sqlite-v2', sessionCount: 4, issues: [] },
       { agent: 'codex', version: '0.169.0 (demo)', dataDir: 'synthetic-demo', layout: 'jsonl-rollout', sessionCount: 2, issues: [] },
+      { agent: 'claude', version: '2.1.327 (demo)', dataDir: 'synthetic-demo', layout: 'jsonl-projects', sessionCount: 2, issues: [] },
     ],
     mcpServers: [
       { agent: 'opencode', configPath: '/demo/.config/opencode/opencode.json', names: ['playwright', 'context7'] },
+      { agent: 'claude', configPath: '/demo/project/.mcp.json', names: ['github'] },
     ],
     skills: [
       { agent: 'opencode', dir: '/demo/.config/opencode/skills', ids: ['deploy', 'review'] },
@@ -220,14 +264,15 @@ export function runDemoAudit(): AuditReport {
     sessionsAnalyzed: sessions.length,
     sessionsSkippedWindow: 0,
     sessionsSkippedLimit: 0,
+    sessionsFailedRead: 0,
     sessionsFromCache: 0,
     partialSessions: 0,
     parseWarnings: [],
   };
   return assembleReport({
     mode: 'demo',
-    generatedAt: BASE + 360 * MIN,
-    window: { since: BASE - 86_400_000, until: BASE + 360 * MIN, limit: 50 },
+    generatedAt: BASE + 480 * MIN,
+    window: { since: BASE - 86_400_000, until: BASE + 480 * MIN, limit: 50 },
     environment: demoEnvironment(),
     coverage,
     sessions,

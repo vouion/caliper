@@ -28,7 +28,7 @@ COMMANDS
   version             Print version
 
 AUDIT OPTIONS
-  --agent <id>        Restrict to an agent: opencode | codex (repeatable)
+  --agent <id>        Restrict to an agent: opencode | codex | claude (repeatable)
   --since <duration>  Analysis window, e.g. 7d, 12h, 30d (default 30d)
   --all               Analyze all sessions regardless of age
   --limit <n>         Max sessions per agent (default ${DEFAULT_LIMIT}, max 1000)
@@ -37,7 +37,7 @@ AUDIT OPTIONS
   --json              Print machine-readable JSON instead of the terminal report
 
 REPORT OPTIONS
-  --format <fmt>      json | terminal (default terminal)
+  --format <fmt>      json | terminal (default terminal; --json is an alias)
 
 GLOBAL OPTIONS
   --no-color          Disable ANSI colors (also honors NO_COLOR)
@@ -138,14 +138,17 @@ function main(argv: string[]): number {
       let agents: AgentId[] | undefined;
       if (Array.isArray(agentsRaw) && agentsRaw.length > 0) {
         agents = agentsRaw.map((a) => {
-          if (a !== 'opencode' && a !== 'codex') {
-            throw new HavrinError('USAGE', `Unknown agent: ${String(a)}`, 'Supported agents: opencode, codex');
+          if (a !== 'opencode' && a !== 'codex' && a !== 'claude') {
+            throw new HavrinError('USAGE', `Unknown agent: ${String(a)}`, 'Supported agents: opencode, codex, claude');
           }
           return a;
         });
       }
       let sinceMs = DEFAULT_SINCE_MS;
       const since = wantString(values, 'since');
+      if (values['all'] && since) {
+        throw new HavrinError('USAGE', '--all and --since are mutually exclusive', 'Use --all for full history, or --since <duration> for a window.');
+      }
       if (values['all']) {
         sinceMs = Date.now(); // window.since ≈ 0
       } else if (since) {
@@ -186,7 +189,8 @@ function main(argv: string[]): number {
     }
 
     case 'report': {
-      const format = wantString(values, 'format') ?? 'terminal';
+      const formatRaw = wantString(values, 'format') ?? (values['json'] ? 'json' : 'terminal');
+      const format = formatRaw;
       if (format !== 'json' && format !== 'terminal') {
         throw new HavrinError('USAGE', `Unknown format: ${format}`, 'Supported formats: json, terminal');
       }
