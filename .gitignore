@@ -5,3 +5,6 @@ coverage/
 *.tgz
 .DS_Store
 .caliper/
+
+# Playwright MCP transient artifacts
+.playwright-mcp/
