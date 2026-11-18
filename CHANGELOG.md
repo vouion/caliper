@@ -5,6 +5,18 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.6 — QoL polish + cleanup (2026-11-18)
+
+### Added
+- `caliper completion bash|zsh`: shell completion scripts for commands and flags.
+- Audit/report **NEXT** section guiding the observe → fix → verify loop (`prompt --copy`, `trend`, `experiment demo`).
+- `caliper doctor` now checks clipboard availability for `prompt --copy`.
+
+### Changed
+- Enabled `noUnusedLocals`/`noUnusedParameters` and removed dead code (unused imports/params across adapters, rules, runner, tests).
+- Hardened `.gitignore` (`.npmrc`, `.env*`, `*.tsbuildinfo`) to prevent accidental credential/artifact commits.
+- Deprecated the internal `0.0.0-stage` npm placeholder version.
+
 ## 0.4.5 — Trend view: see progress across audits (2026-11-18)
 
 ### Added

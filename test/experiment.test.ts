@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { createExperiment, runExperiment, runExperimentRecord } from '../src/experiment/runner.ts';
+import { createExperiment, runExperiment } from '../src/experiment/runner.ts';
 import { runExperimentDemo } from '../src/experiment/demo.ts';
 import { listExperiments, loadExperiment, saveExperiment, acquireRunLock, experimentFile } from '../src/experiment/store.ts';
 import { compareExperiment, aggregateConfig } from '../src/experiment/compare.ts';
@@ -18,7 +18,7 @@ import { materializeBuiltinTemplate, builtinBenchmark } from '../src/experiment/
 import { fingerprintSource, materializeWorkspace } from '../src/experiment/workspace.ts';
 import { renderExperimentTerminal } from '../src/experiment/report.ts';
 import type { ExperimentRecord, TrialResult, Recommendation } from '../src/index.ts';
-import { tempDir, cleanup, withEnv, withEnvAsync } from './helpers.ts';
+import { tempDir, cleanup, withEnvAsync } from './helpers.ts';
 
 function envFor(dir: string): Record<string, string | undefined> {
   const home = path.join(dir, 'home');
@@ -70,7 +70,7 @@ export function finalPrice(price, discountRate) {
 }
 `;
 
-function createMockExperiment(dir: string, opts: { trials?: number; seed?: number; recommendationIds?: string[] } = {}) {
+function createMockExperiment(_dir: string, opts: { trials?: number; seed?: number; recommendationIds?: string[] } = {}) {
   return createExperiment({
     benchmarkRef: 'builtin:fix-failing-test',
     baseline: mockConfig('base', { fix: false }),

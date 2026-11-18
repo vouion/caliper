@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
 import { parseDuration, sanitizeErrorMessage, fingerprint, isSecretKey } from '../src/core/util.ts';
 import { classifyCommand, commandFromInput } from '../src/core/classify.ts';
 import { runDiagnostics } from '../src/diagnostics/rules.ts';

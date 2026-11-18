@@ -31,7 +31,7 @@ function envFor(home: string): Record<string, string | undefined> {
   return { CALIPER_CLAUDE_HOME: home, CLAUDE_CONFIG_DIR: undefined, PATH: '' };
 }
 
-function ingest(home: string) {
+function ingest(_home: string) {
   const adapter = new ClaudeAdapter();
   const inst = adapter.detect();
   const metas = adapter.listSessions(inst);

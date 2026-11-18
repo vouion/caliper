@@ -215,6 +215,15 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
     push(...renderRecommendation(r, i, p, width));
   }
 
+  // Next steps (guide the observe → fix → verify loop)
+  push('');
+  push(p.bold('NEXT'));
+  if (report.findings.length > 0) {
+    push(p.dim('  caliper prompt --copy      turn these findings into a fix prompt for your agent'));
+  }
+  push(p.dim('  caliper trend              track finding counts across audits'));
+  push(p.dim('  caliper experiment demo    see a correctness-verified experiment (free)'));
+
   // Footer
   push('');
   push(rule);

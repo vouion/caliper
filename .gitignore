@@ -3,8 +3,12 @@ dist/
 coverage/
 *.log
 *.tgz
+*.tsbuildinfo
 .DS_Store
 .caliper/
+.npmrc
+.env
+.env.*
 
 # Playwright MCP transient artifacts
 .playwright-mcp/

@@ -54,3 +54,11 @@ test('terminal renderer: zero-coverage report explains and suggests demo', () =>
   assert.ok(out.includes('No session data was analyzed'));
   assert.ok(out.includes('caliper demo'));
 });
+
+test('terminal renderer: shows next-step guidance (observe → fix → verify)', () => {
+  const out = renderTerminal(runDemoAudit(), { color: false, width: 80 });
+  assert.ok(out.includes('NEXT'));
+  assert.ok(out.includes('caliper prompt --copy'));
+  assert.ok(out.includes('caliper trend'));
+  assert.ok(out.includes('caliper experiment demo'));
+});

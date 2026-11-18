@@ -15,6 +15,7 @@ import { runDemoAudit } from './demo/dataset.ts';
 import { loadLastAudit, loadAuditHistory } from './store.ts';
 import { buildFixPrompt, selectRecommendations, type PromptAgent } from './optimize/prompt.ts';
 import { copyToClipboard } from './optimize/clipboard.ts';
+import { BASH_COMPLETION, ZSH_COMPLETION } from './completion.ts';
 import { renderTerminal, renderTrendHistory, Painter, shouldUseColor } from './report/terminal.ts';
 import { createExperiment, runExperiment } from './experiment/runner.ts';
 import { listExperiments, loadExperiment } from './experiment/store.ts';
@@ -36,6 +37,7 @@ COMMANDS
   prompt              Generate an agent-ready prompt to apply the audit's fixes
   demo                Run the audit on clearly-labeled synthetic data
   experiment          Reproducible configuration experiments (see below)
+  completion          Emit bash/zsh shell completion scripts
   help                Show this help
   version             Print version
 
@@ -159,7 +161,7 @@ function main(argv: string[]): number | Promise<number> {
     process.stdout.write(HELP);
     return 0;
   }
-  const maxPositionals = command === 'experiment' ? 3 : 1;
+  const maxPositionals = command === 'experiment' ? 3 : command === 'completion' ? 2 : 1;
   if (positionals.length > maxPositionals) {
     throw new CaliperError('USAGE', `Unexpected argument: ${positionals[maxPositionals]}`, 'Run caliper help for usage.');
   }
@@ -261,6 +263,14 @@ function main(argv: string[]): number | Promise<number> {
       const history = loadAuditHistory();
       const width = Math.min(process.stdout.columns ?? 80, 100);
       process.stdout.write(renderTrendHistory(history, new Painter(color), width).join('\n') + '\n');
+      return 0;
+    }
+
+    case 'completion': {
+      const shell = positionals[1];
+      if (shell === 'bash') process.stdout.write(BASH_COMPLETION);
+      else if (shell === 'zsh') process.stdout.write(ZSH_COMPLETION);
+      else throw new CaliperError('USAGE', 'completion requires a shell: bash or zsh', 'Try: caliper completion bash');
       return 0;
     }
 

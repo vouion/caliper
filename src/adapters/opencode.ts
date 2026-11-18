@@ -17,7 +17,6 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall, ToolStatus, TokenUsage } from '../core/types.ts';
-import { emptyTokens } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
 import { CaliperError, errorMessage } from '../core/errors.ts';
 import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';

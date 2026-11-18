@@ -190,6 +190,35 @@ test('cli: doctor passes with fixture data and fails nothing critical', () => {
   cleanup(dir);
 });
 
+test('cli: doctor reports clipboard availability for prompt --copy', () => {
+  const r = runCli(['doctor'], { NO_COLOR: '1' });
+  assert.ok(r.stdout.includes('clipboard (prompt --copy)'));
+});
+
+test('cli: completion bash emits a syntactically valid script', () => {
+  const r = runCli(['completion', 'bash'], {});
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('complete -F _caliper caliper'));
+  const dir = tempDir();
+  const f = path.join(dir, 'caliper.bash');
+  fs.writeFileSync(f, r.stdout);
+  execFileSync('bash', ['-n', f], { encoding: 'utf8' }); // throws on syntax error
+  cleanup(dir);
+});
+
+test('cli: completion zsh emits a compdef script', () => {
+  const r = runCli(['completion', 'zsh'], {});
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('#compdef caliper'));
+});
+
+test('cli: completion without a valid shell exits 2', () => {
+  assert.equal(runCli(['completion'], {}).status, 2);
+  const r = runCli(['completion', 'fish'], {});
+  assert.equal(r.status, 2);
+  assert.ok(r.stderr.includes('error[USAGE]'));
+});
+
 test('cli: audit with no data communicates clearly and exits 0', () => {
   const dir = tempDir();
   const r = runCli(['audit'], {

@@ -50,6 +50,8 @@ npm link                     # puts `caliper` on your PATH
 
 Runtime dependencies: exactly one (`smol-toml`, BSD-3-Clause, for Codex config parsing). Everything else is Node built-ins.
 
+**Shell completion** (optional): `caliper completion bash` or `caliper completion zsh` emits a completion script — source it in your shell config (bash) or save it as `_caliper` in your `$fpath` (zsh).
+
 ## Quickstart
 
 ```sh
@@ -59,7 +61,7 @@ caliper audit --since 7d --agent claude
 caliper audit --json > audit.json   # machine-readable output
 caliper report --format json        # re-render the last saved audit
 caliper trend                       # finding-count deltas across recent audits
-caliper prompt --agent claude --output fix.md   # agent-ready prompt to apply the fixes
+caliper prompt --agent claude --copy          # agent-ready fix prompt → clipboard (or --output fix.md)
 caliper demo                        # synthetic dataset — no personal data needed
 ```
 
@@ -225,7 +227,7 @@ Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ```sh
 npm install
-npm test          # node:test suite (218 tests), no test framework dependency
+npm test          # node:test suite (223 tests), no test framework dependency
 npm run typecheck
 npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source

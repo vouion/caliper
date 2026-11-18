@@ -8,6 +8,7 @@ import { ADAPTERS } from './audit.ts';
 import { probeDatabase, opencodeDbPath } from './adapters/opencode.ts';
 import { caliperHome } from './core/fs.ts';
 import { scanEnvironment } from './env/environment.ts';
+import { detectClipboardTool } from './optimize/clipboard.ts';
 import { CALIPER_VERSION } from './version.ts';
 
 export type CheckStatus = 'ok' | 'warn' | 'fail';
@@ -121,6 +122,14 @@ export function runDoctor(projectDir?: string): DoctorResult {
       detail: `${home}: ${err instanceof Error ? err.message : String(err)}`,
     });
   }
+
+  // Clipboard utility (for caliper prompt --copy)
+  const clip = detectClipboardTool();
+  checks.push({
+    name: 'clipboard (prompt --copy)',
+    status: clip ? 'ok' : 'warn',
+    detail: clip ? `${clip.cmd} available` : 'no clipboard utility; use prompt --output <file> (or install wl-clipboard/xclip/xsel)',
+  });
 
   const exitCode = checks.some((c) => c.status === 'fail') ? 1 : 0;
   return { checks, exitCode };

@@ -7,7 +7,7 @@
  * enthusiasm: heuristic signals (e.g. Codex error inference) cap confidence.
  */
 import type { EnvironmentInfo, Evidence, Finding, SessionRecord, Severity } from '../core/types.ts';
-import { iterTools, countEvents } from '../core/session.ts';
+import { iterTools } from '../core/session.ts';
 import { isReadTool, isWriteTool } from '../core/classify.ts';
 
 export interface RuleContext {

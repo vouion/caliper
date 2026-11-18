@@ -16,7 +16,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { randomBytes, randomUUID } from 'node:crypto';
 import type {
-  ExperimentConfig,
   ExperimentRecord,
   TrialResult,
   ExecutionAgent,
