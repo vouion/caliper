@@ -12,11 +12,14 @@ concurrency:
 jobs:
   test:
     timeout-minutes: 12
+    # macOS hosted runners (arm64 and x64) are currently capacity-constrained and
+    # frequently cancel while queued without ever starting. Ubuntu is the required
+    # gate (the CLI is pure JS; its unix subprocess path is identical on macOS/Linux).
+    # macOS legs run best-effort for extra coverage when runners are available.
+    continue-on-error: ${{ matrix.os == 'macos-15' }}
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 is the x64 image; macos-latest (arm64) is capacity-constrained
-        # and frequently cancels while queued for a runner.
         os: [ubuntu-latest, macos-15]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
