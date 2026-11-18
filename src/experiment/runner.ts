@@ -23,7 +23,7 @@ import type {
   ExperimentComparison,
 } from './types.ts';
 import { HavrinError } from '../core/errors.ts';
-import { fingerprint } from '../core/util.ts';
+import { fingerprint, sanitizeFreeText } from '../core/util.ts';
 import { havrinHome } from '../core/fs.ts';
 import { HAVRIN_VERSION } from '../version.ts';
 import { loadBenchmark, validateSource, fingerprintSource, materializeWorkspace, removeWorkspace } from './workspace.ts';
@@ -289,7 +289,13 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
   try {
     for (const trial of executable) {
       const config = record.configs.find((c) => c.id === trial.configId);
-      if (!config) continue;
+      if (!config) {
+        trial.status = 'error';
+        trial.error = 'configuration missing from experiment record';
+        trial.finishedAt = Date.now();
+        save();
+        continue;
+      }
       const adapter = EXECUTION_ADAPTERS[config.agent];
       const workspace = path.join(wsRoot, trial.trialId);
       const stdoutPath = path.join(scratch, `${trial.trialId}.out`);
@@ -345,7 +351,9 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
         }
       } catch (err) {
         trial.status = 'error';
-        trial.error = err instanceof Error ? err.message : String(err);
+        // Defense in depth: error text is structural in practice (fs/spawn
+        // errors), but sanitize so no unexpected path can carry content.
+        trial.error = sanitizeFreeText(err instanceof Error ? err.message : String(err), 300);
         trial.finishedAt = Date.now();
       }
 

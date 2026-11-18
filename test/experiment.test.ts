@@ -121,6 +121,23 @@ test('experiment demo: deterministic verdict across runs', async () => {
 // Create validation
 // ---------------------------------------------------------------------------
 
+test('create: rejects acceptance check ids that could escape scratch paths', async () => {
+  const dir = tempDir();
+  await withEnvAsync(envFor(dir), async () => {
+    const templateDir = path.join(dir, 'tpl');
+    materializeBuiltinTemplate(templateDir);
+    const spec = builtinBenchmark(templateDir);
+    spec.acceptance = [{ id: '../../escape', description: 'x', kind: 'file-exists', path: 'package.json' }];
+    const specFile = path.join(dir, 'bad-bench.json');
+    fs.writeFileSync(specFile, JSON.stringify(spec));
+    assert.throws(
+      () => createExperiment({ benchmarkRef: specFile, baseline: mockConfig('base', { fix: false }), candidates: [mockConfig('cand', { fix: true })] }),
+      /acceptance check/,
+    );
+  });
+  cleanup(dir);
+});
+
 test('create: rejects invalid definitions', async () => {
   const dir = tempDir();
   await withEnvAsync(envFor(dir), async () => {

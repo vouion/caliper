@@ -12,6 +12,9 @@ function fail(msg: string): never {
 
 function validCheck(v: unknown): v is AcceptanceCheck {
   if (!isObj(v) || !isStr(v['id']) || !isStr(v['description']) || !isStr(v['kind']) || !CHECK_KINDS.has(v['kind'])) return false;
+  // check.id is used in scratch filenames; restrict charset to prevent path
+  // traversal via a crafted benchmark definition (defense in depth).
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(v['id'])) return false;
   switch (v['kind']) {
     case 'test-command':
     case 'command-succeeds':
