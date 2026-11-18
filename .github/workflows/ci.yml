@@ -12,15 +12,16 @@ concurrency:
 jobs:
   test:
     timeout-minutes: 12
-    # macOS hosted runners (arm64 and x64) are currently capacity-constrained and
-    # frequently cancel while queued without ever starting. Ubuntu is the required
-    # gate (the CLI is pure JS; its unix subprocess path is identical on macOS/Linux).
-    # macOS legs run best-effort for extra coverage when runners are available.
-    continue-on-error: ${{ matrix.os == 'macos-15' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15]
+        # Ubuntu is the required gate. The CLI is pure JS (one pure-JS dependency,
+        # node:sqlite built-in); its unix subprocess path is identical on macOS and
+        # Linux. macOS x64 Node 22 and 24 both passed CI when runners were available,
+        # but GitHub macOS hosted runners are capacity-constrained and frequently
+        # cancel while queued (never assigned a runner), so they are excluded from
+        # the required matrix to keep CI reliably green.
+        os: [ubuntu-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
     steps:

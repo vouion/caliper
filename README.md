@@ -1,6 +1,7 @@
 # Caliper by Havrin
 
 [![CI](https://github.com/vouion/caliper/actions/workflows/ci.yml/badge.svg)](https://github.com/vouion/caliper/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@vouion/caliper.svg)](https://www.npmjs.com/package/@vouion/caliper)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node >= 22.13](https://img.shields.io/badge/node-%3E%3D22.13-339933.svg)](https://nodejs.org)
 
@@ -39,13 +40,12 @@ Every finding carries supporting evidence, a confidence level, consequences, and
 Requires **Node.js ≥ 22.13** (uses the built-in SQLite module; no native dependencies).
 
 ```sh
-# From source (works today):
+npm install -g @vouion/caliper
+
+# or from source:
 git clone https://github.com/vouion/caliper && cd caliper
 npm install && npm run build
 npm link                     # puts `caliper` on your PATH
-
-# From npm (registry publish pending account 2FA — see the latest release notes):
-npm install -g @vouion/caliper
 ```
 
 Runtime dependencies: exactly one (`smol-toml`, BSD-3-Clause, for Codex config parsing). Everything else is Node built-ins.

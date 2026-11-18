@@ -14,7 +14,7 @@ project with evidence of use — that is the resume goal, and it is achievable.
 
 | # | Channel | Why it matters | Status |
 |---|---|---|---|
-| 1 | **npm registry** (`@vouion/caliper`) | The install path most devs expect; `npm i -g` frictionless | Ready; **[founder]** 2FA blocks publish |
+| 1 | **npm registry** (`@vouion/caliper`) | The install path most devs expect; `npm i -g` frictionless | ✅ **Live:** `@vouion/caliper@0.4.2` |
 | 2 | **GitHub release + social preview** | Share card when the repo is linked anywhere; release = installable tarball | v0.4.2 live (latest); social preview pending |
 | 3 | **Show HN** | Single highest-leverage post for a dev tool; front page = thousands of visits | Copy ready (`launch/show-hn.md`); **[founder]** posts |
 | 4 | **X / Twitter thread** | Visual demo GIF travels well; tags reach the AI-coding community | Copy ready (`launch/x-thread.md`); **[founder]** posts |
@@ -27,12 +27,12 @@ project with evidence of use — that is the resume goal, and it is achievable.
 
 ## Sequence
 
-### Phase 0 — Prerequisites (founder-gated)
-1. **[founder]** npm 2FA: supply a one-time code or a granular token with publish
-   rights. Then `npm publish --access public` ships `@vouion/caliper`.
+### Phase 0 — Prerequisites
+1. ✅ **Done:** npm published — `@vouion/caliper@0.4.2` is live (`npm install -g @vouion/caliper`).
 2. ✅ **Done:** GitHub releases cut through **v0.4.2** (prompt feature + demo GIF
    + hero in 0.4.0; Node 22/24 `node --test` compatibility in 0.4.1; reliable
-   acceptance-check output capture in 0.4.2). CI is green across the matrix.
+   acceptance-check output capture in 0.4.2). CI is green on the required ubuntu
+   matrix (Node 22 + 24); macOS x64 Node 22/24 verified when runners were available.
 3. Set the **GitHub social preview** to `assets/social-preview.png`
    (Settings → General → Social preview). This is the share card.
 
@@ -45,7 +45,7 @@ project with evidence of use — that is the resume goal, and it is achievable.
 
 ### Phase 2 — Launch (founder posts, coordinated)
 Pick one weekday (Tue–Thu), US morning (~08:00–10:00 PT) for Show HN.
-1. Publish npm first (GitHub release v0.4.2 is already cut) so install instructions work.
+1. ✅ npm + GitHub release v0.4.2 are live — install instructions work.
 2. Post **Show HN** (`launch/show-hn.md`); founder stays online to answer
    comments for the first 2–3 hours (engagement drives ranking).
 3. Same day: **X thread** with the demo GIF (`launch/x-thread.md`).
@@ -73,8 +73,8 @@ Pick one weekday (Tue–Thu), US morning (~08:00–10:00 PT) for Show HN.
 - [x] `npm pack` → install smoke test of the tarball
 - [x] CHANGELOG updated per release
 - [x] Tag + GitHub release with notes + tarball asset (v0.4.0 / v0.4.1 / v0.4.2)
-- [ ] **[founder]** `npm publish --access public` (needs a bypass-2FA token or `--otp`)
-- [ ] Update README install section to the live npm name; remove "pending"
+- [x] **[founder]** `npm publish --access public` — `@vouion/caliper@0.4.2` live
+- [x] Update README install section to the live npm name; remove "pending"
 - [ ] Set social preview
 
 ## What I can do autonomously vs. what needs you
