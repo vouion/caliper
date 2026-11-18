@@ -5,10 +5,10 @@
  */
 import path from 'node:path';
 import fs from 'node:fs';
-import type { AgentId, AuditReport, SessionRecord } from './core/types.ts';
+import type { AgentId, AuditReport, AuditSummary, SessionRecord } from './core/types.ts';
 import { caliperHome, writeJsonAtomic } from './core/fs.ts';
 import { errorMessage } from './core/errors.ts';
-import { isValidSessionRecord, isValidFinding, isValidRecommendation, isValidSessionSummary, isObj, isNum } from './core/validate.ts';
+import { isValidSessionRecord, isValidFinding, isValidRecommendation, isValidSessionSummary, isValidAuditSummary, isObj, isNum } from './core/validate.ts';
 
 const CACHE_SCHEMA_VERSION = 1;
 // Normalized records are content-free and small (~KB each); 2000 entries
@@ -111,5 +111,35 @@ export function loadLastAudit(): AuditReport | undefined {
     return parsed;
   } catch {
     return undefined;
+  }
+}
+
+// Audit history: a small ring buffer of content-free summaries used for trends.
+const AUDIT_HISTORY_CAP = 50;
+
+export function auditHistoryPath(): string {
+  return path.join(caliperHome(), 'history.json');
+}
+
+export function loadAuditHistory(): AuditSummary[] {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(auditHistoryPath(), 'utf8')) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidAuditSummary);
+  } catch {
+    return [];
+  }
+}
+
+/** Append a summary (real audits only) and trim to the cap. Non-fatal on write error. */
+export function appendAuditHistory(summary: AuditSummary): string | undefined {
+  if (summary.mode !== 'real') return undefined;
+  const history = loadAuditHistory();
+  history.push(summary);
+  try {
+    writeJsonAtomic(auditHistoryPath(), history.slice(-AUDIT_HISTORY_CAP));
+    return undefined;
+  } catch (err) {
+    return `history write failed: ${errorMessage(err)}`;
   }
 }

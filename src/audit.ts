@@ -18,7 +18,8 @@ import { ClaudeAdapter } from './adapters/claude.ts';
 import { scanEnvironment } from './env/environment.ts';
 import { assembleReport } from './report/assemble.ts';
 import { linkRecommendationStates } from './experiment/link.ts';
-import { loadCache, saveCache, saveLastAudit } from './store.ts';
+import { loadCache, saveCache, saveLastAudit, loadAuditHistory, appendAuditHistory } from './store.ts';
+import { summarizeAudit, computeTrend } from './report/trend.ts';
 import { errorMessage } from './core/errors.ts';
 
 export const ADAPTERS: AgentAdapter[] = [new OpenCodeAdapter(), new CodexAdapter(), new ClaudeAdapter()];
@@ -149,6 +150,13 @@ export function runAudit(opts: AuditOptions = {}): AuditOutcome {
   linkRecommendationStates(report.recommendations);
 
   if (opts.persist !== false) {
+    // Trend vs the previous persisted real audit (content-free counts only).
+    const summary = summarizeAudit(report);
+    const history = loadAuditHistory();
+    const previous = history[history.length - 1];
+    if (previous) report.trend = computeTrend(previous, summary);
+    const historyErr = appendAuditHistory(summary);
+    if (historyErr) notices.push(historyErr);
     try {
       saveLastAudit(report);
     } catch (err) {

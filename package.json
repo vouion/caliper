@@ -1,6 +1,6 @@
 {
   "name": "@vouion/caliper",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Local-first, evidence-driven optimization engine for AI-powered development. Analyze coding-agent sessions, diagnose workflow inefficiencies, run reproducible experiments, and get evidence-backed recommendations. An open-source project by Havrin.",
   "license": "Apache-2.0",
   "type": "module",

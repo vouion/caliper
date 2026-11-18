@@ -5,6 +5,13 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.5 — Trend view: see progress across audits (2026-11-18)
+
+### Added
+- `caliper trend`: finding-count deltas across recent audits — a history table plus a since-last-audit delta by severity and rule, with newly-firing / no-longer-firing rules. Backed by a content-free audit history ring buffer (last 50 real audits, `history.json`, 0600).
+- The audit report now shows a **TREND** section comparing against the previous audit.
+- Honest interpretation: window changes are flagged (a delta may reflect the window, not behavior), and decreases may be fixes *or* sessions aging out of the window.
+
 ## 0.4.4 — One-paste prompts + adaptive-audit clarity (2026-11-18)
 
 ### Added

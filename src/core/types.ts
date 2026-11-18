@@ -284,6 +284,41 @@ export interface AuditReport {
     userTurns: number;
     assistantTurns: number;
   };
+  /** Delta vs the previous persisted real audit (content-free). Absent on first audit/demo. */
+  trend?: AuditTrend;
+}
+
+/** Content-free compact snapshot of an audit, kept in a local history ring buffer. */
+export interface AuditSummary {
+  generatedAt: number;
+  mode: 'real' | 'demo';
+  window: { since: number; until: number };
+  sessionsAnalyzed: number;
+  findingsTotal: number;
+  severity: Record<Severity, number>;
+  /** ruleId -> finding count. */
+  rules: Record<string, number>;
+}
+
+export interface TrendDelta {
+  previous: number;
+  current: number;
+  delta: number;
+}
+
+/** Comparison of the current audit against the previous one. Counts only — no content. */
+export interface AuditTrend {
+  previousGeneratedAt: number;
+  /** True when the analysis window duration changed (delta may reflect window, not behavior). */
+  windowChanged: boolean;
+  findings: TrendDelta;
+  severity: Record<Severity, TrendDelta>;
+  rules: { ruleId: string; previous: number; current: number; delta: number }[];
+  /** Rules firing now but not in the previous audit. */
+  newRules: string[];
+  /** Rules firing previously but not now (fixed OR aged out of the window). */
+  goneRules: string[];
+  sessionsAnalyzed: TrendDelta;
 }
 
 /** Content-free per-session summary included in reports. */

@@ -3,7 +3,7 @@
  * Used by the cache/artifact loaders (semantic corruption must be rejected
  * safely, never crash the pipeline) and the experiment registry.
  */
-import type { SessionEvent, SessionRecord, ToolCall, Finding, Recommendation, SessionSummary } from './types.ts';
+import type { SessionEvent, SessionRecord, ToolCall, Finding, Recommendation, SessionSummary, AuditSummary } from './types.ts';
 
 export function isObj(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -147,4 +147,15 @@ export function isValidSessionSummary(v: unknown): v is SessionSummary {
     isNum(v['compactions']) &&
     isBool(v['partial'])
   );
+}
+
+export function isValidAuditSummary(v: unknown): v is AuditSummary {
+  if (!isObj(v)) return false;
+  if (!isNum(v['generatedAt']) || (v['mode'] !== 'real' && v['mode'] !== 'demo')) return false;
+  if (!isObj(v['window']) || !isNum(v['window']['since']) || !isNum(v['window']['until'])) return false;
+  if (!isNum(v['sessionsAnalyzed']) || !isNum(v['findingsTotal'])) return false;
+  if (!isObj(v['severity']) || !isObj(v['rules'])) return false;
+  for (const s of ['high', 'medium', 'low', 'info']) if (!isNum(v['severity'][s])) return false;
+  for (const key of Object.keys(v['rules'])) if (!isNum(v['rules'][key])) return false;
+  return true;
 }

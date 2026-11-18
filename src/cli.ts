@@ -12,10 +12,10 @@ import { readJsonFile } from './core/fs.ts';
 import { runAudit, DEFAULT_SINCE_MS, DEFAULT_LIMIT } from './audit.ts';
 import { runDoctor } from './doctor.ts';
 import { runDemoAudit } from './demo/dataset.ts';
-import { loadLastAudit } from './store.ts';
+import { loadLastAudit, loadAuditHistory } from './store.ts';
 import { buildFixPrompt, selectRecommendations, type PromptAgent } from './optimize/prompt.ts';
 import { copyToClipboard } from './optimize/clipboard.ts';
-import { renderTerminal, shouldUseColor } from './report/terminal.ts';
+import { renderTerminal, renderTrendHistory, Painter, shouldUseColor } from './report/terminal.ts';
 import { createExperiment, runExperiment } from './experiment/runner.ts';
 import { listExperiments, loadExperiment } from './experiment/store.ts';
 import { compareExperiment } from './experiment/compare.ts';
@@ -32,6 +32,7 @@ COMMANDS
   doctor              Check runtime, agent installs, and session storage health
   audit               Analyze agent sessions + environment; print findings & recommendations
   report              Re-render the last audit (default: terminal)
+  trend               Show finding-count deltas across recent audits
   prompt              Generate an agent-ready prompt to apply the audit's fixes
   demo                Run the audit on clearly-labeled synthetic data
   experiment          Reproducible configuration experiments (see below)
@@ -253,6 +254,13 @@ function main(argv: string[]): number | Promise<number> {
       } else {
         process.stdout.write(renderTerminal(report, { color }));
       }
+      return 0;
+    }
+
+    case 'trend': {
+      const history = loadAuditHistory();
+      const width = Math.min(process.stdout.columns ?? 80, 100);
+      process.stdout.write(renderTrendHistory(history, new Painter(color), width).join('\n') + '\n');
       return 0;
     }
 

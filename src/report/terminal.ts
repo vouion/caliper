@@ -3,8 +3,9 @@
  * Color respects NO_COLOR / FORCE_COLOR / TTY. Content-free by construction:
  * it renders only what the normalized model carries.
  */
-import type { AuditReport, Finding, Recommendation, Severity } from '../core/types.ts';
+import type { AuditReport, AuditSummary, AuditTrend, Finding, Recommendation, Severity, TrendDelta } from '../core/types.ts';
 import { formatCost, formatDate, formatDuration, formatTokens, sanitizeControlChars, plural } from '../core/util.ts';
+import { computeTrend, formatDelta } from './trend.ts';
 import { countBySeverity } from '../diagnostics/rules.ts';
 import { caliperHome } from '../core/fs.ts';
 import path from 'node:path';
@@ -178,6 +179,12 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
     push('');
   }
 
+  // Trend (delta vs the previous persisted audit)
+  if (report.trend) {
+    push(...renderTrend(report.trend, p, width));
+    push('');
+  }
+
   // Findings
   const counts = countBySeverity(report.findings);
   push(p.bold(`FINDINGS (${report.findings.length})`) + p.dim(`  high ${counts.high} · medium ${counts.medium} · low ${counts.low}`));
@@ -219,6 +226,48 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   }
   push('');
   return out.join('\n');
+}
+
+export function renderTrendHistory(history: AuditSummary[], p: Painter, width: number): string[] {
+  const lines: string[] = [];
+  if (history.length === 0) {
+    lines.push(p.yellow('No audit history yet. Run caliper audit to start tracking trends.'));
+    return lines;
+  }
+  lines.push(p.bold('TREND HISTORY') + p.dim(`  last ${Math.min(history.length, 10)} of ${history.length} audit(s)`));
+  lines.push(p.dim(`  ${'WHEN'.padEnd(18)}${'FINDINGS'.padStart(6)}  ${'HIGH'.padStart(4)}  ${'MED'.padStart(4)}  ${'LOW'.padStart(4)}  ${'SESSIONS'.padStart(8)}`));
+  for (const h of history.slice(-10)) {
+    const when = formatDate(h.generatedAt).slice(0, 16).padEnd(18);
+    lines.push(`  ${when}${String(h.findingsTotal).padStart(6)}  ${String(h.severity.high).padStart(4)}  ${String(h.severity.medium).padStart(4)}  ${String(h.severity.low).padStart(4)}  ${String(h.sessionsAnalyzed).padStart(8)}`);
+  }
+  if (history.length >= 2) {
+    lines.push('');
+    lines.push(...renderTrend(computeTrend(history[history.length - 2]!, history[history.length - 1]!), p, width));
+  } else {
+    lines.push(p.dim('  Run caliper audit again later to see a delta.'));
+  }
+  return lines;
+}
+
+function renderTrend(t: AuditTrend, p: Painter, width: number): string[] {
+  const lines: string[] = [];
+  const delta = (d: TrendDelta, lowerIsBetter: boolean): string => {
+    const sign = formatDelta(d.delta);
+    const colored = d.delta === 0 ? p.dim(sign) : lowerIsBetter ? (d.delta < 0 ? p.green(sign) : p.red(sign)) : p.dim(sign);
+    return `${d.previous} → ${d.current} (${colored})`;
+  };
+  lines.push(p.bold('TREND') + p.dim(`  vs previous audit · ${formatDate(t.previousGeneratedAt)}`));
+  lines.push(`  Findings: ${delta(t.findings, true)} · sessions analyzed: ${delta(t.sessionsAnalyzed, false)}`);
+  lines.push(`  high ${delta(t.severity.high, true)} · medium ${delta(t.severity.medium, true)} · low ${delta(t.severity.low, true)}`);
+  const changed = t.rules.filter((r) => r.delta !== 0);
+  if (changed.length > 0) {
+    lines.push(...wrap('by rule: ' + changed.map((r) => `${r.ruleId} ${r.previous}→${r.current}`).join(' · '), width, '  '));
+  }
+  if (t.newRules.length > 0) lines.push(p.yellow('  newly firing: ' + t.newRules.join(', ')));
+  if (t.goneRules.length > 0) lines.push(p.green('  no longer firing: ' + t.goneRules.join(', ')));
+  if (t.windowChanged) lines.push(p.yellow('  window changed — delta may reflect the window, not behavior.'));
+  lines.push(p.dim('  decreases may be fixes or sessions aging out; run caliper trend for history.'));
+  return lines;
 }
 
 function severityBadge(p: Painter, s: Severity): string {

@@ -47,6 +47,7 @@ src/
   optimize/
     recommend.ts       Finding → 8-field recommendation templates (tested: false)
     prompt.ts          Deterministic agent-ready fix prompt (caliper prompt; zero-LLM)
+    clipboard.ts       Fixed-argv clipboard copy for prompt --copy (reviewed subprocess)
   experiment/          EXPERIMENTATION engine (v0.3)
     types.ts           Benchmark/config/trial/verdict model + availability contract
     validate.ts        Strict benchmark/config validation (untrusted user input)
@@ -68,6 +69,7 @@ src/
   report/
     assemble.ts        Shared report assembly (real + demo use the same path)
     terminal.ts        ANSI terminal renderer (NO_COLOR/FORCE_COLOR/TTY aware)
+    trend.ts           Content-free audit deltas + history snapshots (caliper trend)
   demo/
     dataset.ts         Synthetic audit dataset exercising every rule; clearly labeled
 ```
@@ -188,7 +190,7 @@ Recommendation states: `proposed → ready-for-testing → experiment-running �
 
 ## CLI contract
 
-- Commands: `doctor`, `audit`, `report`, `prompt`, `demo`, `experiment {list|create|run|report|inspect|demo}`, `help`, `version`.
+- Commands: `doctor`, `audit`, `report`, `trend`, `prompt`, `demo`, `experiment {list|create|run|report|inspect|demo}`, `help`, `version`.
 - Exit codes: `0` success (including "no data" audits, which explain themselves), `1` runtime failure / doctor failures, `2` usage error (including missing experiment approval).
 - Structured errors: `error[CODE]: message` + `hint:` on stderr. Parser exception messages are never propagated (they can embed source content).
 - `audit` flags: `--agent opencode|codex|claude` (repeatable), `--since <dur>`, `--all` (mutually exclusive with `--since`), `--limit <1..1000>`, `--no-cache`, `--project <dir>`, `--json`.
@@ -201,7 +203,7 @@ Recommendation states: `proposed → ready-for-testing → experiment-running �
 
 ## State & environment overrides
 
-State dir: `$CALIPER_HOME` → `$XDG_DATA_HOME/caliper` → `~/.local/share/caliper`. Contains `last-audit.json` and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
+State dir: `$CALIPER_HOME` → `$XDG_DATA_HOME/caliper` → `~/.local/share/caliper`. Contains `last-audit.json`, `history.json` (content-free audit-summary ring buffer, last 50 real audits, for trends), and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
 
 Overrides (tests and advanced use only): `CALIPER_HOME`, `CALIPER_OPENCODE_DATA_DIR`, `CALIPER_OPENCODE_CONFIG_DIR`, `CALIPER_CODEX_HOME` (also honors `CODEX_HOME`), `CALIPER_CLAUDE_HOME` (takes precedence over `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
 
@@ -213,7 +215,7 @@ Two bounded surfaces:
 
 ## Testing
 
-`node:test` (no framework dependency): 201 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three session adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type), and the experimentation engine (create validation, full mock lifecycle, approval gates, dry-run, seeded order reproducibility, workspace isolation incl. git sources, failure/timeout honesty, interrupt recovery, live-lock duplicate protection, source-fingerprint integrity, verdict boundary tests, test-stats parsing, recommendation linking, registry privacy), and fix-prompt generation (severity filtering + descending order, agent tailoring, empty/threshold cases, full-history window labeling, CLI flags + NO_AUDIT + demo non-persistence, and the content-free contract over real secret-bearing fixtures).
+`node:test` (no framework dependency): 218 tests covering util/classify boundaries, all eight rules (positive + negative + confidence caps), all three session adapters against synthetic fixtures (malformed data, read-only immutability, split-record usage dedup, orphan outputs, archived sessions, WAL mode, size guards, duplicate ids, sidechains, cost-state semantics), environment scanning (incl. content-free parse warnings), end-to-end audit (windowing, limit, cache hit/miss/invalidation, semantic corruption, multi-agent attribution), CLI subprocess behavior (exit codes, JSON round-trip, NO_COLOR, flag conflicts), demo determinism + rule coverage, the privacy contract over report/artifact/cache for all three agents (sentinel strings in every content-bearing record type), and the experimentation engine (create validation, full mock lifecycle, approval gates, dry-run, seeded order reproducibility, workspace isolation incl. git sources, failure/timeout honesty, interrupt recovery, live-lock duplicate protection, source-fingerprint integrity, verdict boundary tests, test-stats parsing, recommendation linking, registry privacy), and fix-prompt generation (severity filtering + descending order, agent tailoring, empty/threshold cases, full-history window labeling, CLI flags + NO_AUDIT + demo non-persistence, and the content-free contract over real secret-bearing fixtures), the audit trend (delta computation, content-free history ring buffer + cap + corruption rejection, repeat-audit integration, `caliper trend` CLI), and clipboard copy (fake-tool stdin delivery, no-utility error path).
 
 Real-world integration verified separately against installed OpenCode 2.3.1 (258 sessions), Codex 0.169.1 (25 rollouts), and Claude Code 2.1.327 (5,422 transcripts, 1.81 GB): discovery, ingestion, diagnostics, caching, and benchmarking (see README performance table). Experiment execution backends: OpenCode interface verified against `opencode run --help` (v2.3.1); live paid runs are approval-gated and have not been executed by the maintainers as of this release. Codex/Claude execution is implemented but explicitly unverified.
 

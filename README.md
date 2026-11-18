@@ -58,6 +58,7 @@ caliper audit                       # analyze the last 30 days, all agents
 caliper audit --since 7d --agent claude
 caliper audit --json > audit.json   # machine-readable output
 caliper report --format json        # re-render the last saved audit
+caliper trend                       # finding-count deltas across recent audits
 caliper prompt --agent claude --output fix.md   # agent-ready prompt to apply the fixes
 caliper demo                        # synthetic dataset — no personal data needed
 ```
@@ -92,6 +93,7 @@ Session schemas are version-sensitive. Caliper probes the layout before reading,
 | 8 deterministic diagnostic rules with evidence + confidence, across all three agents | ✅ |
 | Recommendations with lifecycle states linked to experiments | ✅ |
 | Agent-ready fix prompts (`caliper prompt`) — provider-agnostic, content-free | ✅ |
+| Trend view (`caliper trend`) — finding-count deltas across audits | ✅ |
 | **Experimentation engine**: reproducible baseline-vs-candidate comparisons | ✅ |
 | Isolated trial workspaces, seeded execution order, multi-trial repetition | ✅ |
 | Deterministic correctness verification (Caliper runs the tests, not the agent) | ✅ |
@@ -124,7 +126,18 @@ The prompt is **deterministic and zero-LLM** — templated from the same content
 - **Agent tailoring** (`--agent generic|opencode|codex|claude`) so durable instruction changes land in the right file (e.g. `CLAUDE.md` vs `AGENTS.md`).
 - A **definition of done** so the agent reports what it changed and how to undo it.
 
-It carries findings, evidence pointers, and instructions — never raw session content or secret values. Pasting it into a cloud agent is your explicit choice; Caliper itself transmits nothing. After the agent applies the fixes, re-run `caliper audit` to confirm the findings dropped, and use an experiment to verify any change that matters.
+It carries findings, evidence pointers, and instructions — never raw session content or secret values. Pasting it into a cloud agent is your explicit choice; Caliper itself transmits nothing. After the agent applies the fixes, re-run `caliper audit --since 7d` to check recent behavior and `caliper trend` to see progress; use an experiment to verify any change that matters.
+
+## Track progress
+
+Session findings are **historical patterns** — fixing your workflow prevents them in *future* sessions, it doesn't erase past ones. Progress shows up over time, and `caliper trend` makes it visible:
+
+```sh
+caliper trend              # history table + delta since your last audit
+caliper audit --since 7d   # focus on recent behavior after applying fixes
+```
+
+Each audit records a content-free snapshot (counts only). `caliper trend` shows findings by severity and rule, what's newly firing, and what's no longer firing. It flags window changes and notes that a decrease may be a fix *or* a session aging out of the window — never false certainty. Environment findings (config) clear immediately once fixed; session findings improve as clean sessions accumulate.
 
 ## Experiments
 
@@ -212,7 +225,7 @@ Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ```sh
 npm install
-npm test          # node:test suite (201 tests), no test framework dependency
+npm test          # node:test suite (218 tests), no test framework dependency
 npm run typecheck
 npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source
