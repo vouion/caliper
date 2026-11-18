@@ -1,0 +1,58 @@
+{
+  "name": "havrin",
+  "version": "0.1.0",
+  "description": "Local-first, evidence-driven optimization engine for AI-powered development. Analyze coding-agent sessions, diagnose workflow inefficiencies, and get evidence-backed recommendations.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "havrin": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --experimental-strip-types test/",
+    "test:coverage": "node --test --experimental-strip-types --experimental-test-coverage test/",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "havrin": "node --experimental-strip-types src/cli.ts",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "ai",
+    "coding-agents",
+    "opencode",
+    "codex",
+    "developer-tools",
+    "optimization",
+    "cli",
+    "local-first",
+    "privacy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/havrin/havrin.git"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.8.0"
+  }
+}
