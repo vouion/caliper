@@ -1,7 +1,7 @@
 /**
  * Persistent local experiment registry.
  *
- * Layout under havrinHome()/experiments/<id>/:
+ * Layout under caliperHome()/experiments/<id>/:
  *   experiment.json   — definition, configs, fingerprints, trial results
  *   run.lock          — pid lock while running (stale-lock recovery)
  *   scratch/          — transient execution artifacts (deleted after trials)
@@ -14,12 +14,12 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import type { ExperimentRecord, TrialResult } from './types.ts';
-import { havrinHome, writeJsonAtomic } from '../core/fs.ts';
-import { HavrinError, errorMessage } from '../core/errors.ts';
+import { caliperHome, writeJsonAtomic } from '../core/fs.ts';
+import { CaliperError, errorMessage } from '../core/errors.ts';
 import { isObj, isStr, isNum, isArr, isBool } from '../core/validate.ts';
 
 export function experimentsDir(): string {
-  return path.join(havrinHome(), 'experiments');
+  return path.join(caliperHome(), 'experiments');
 }
 
 export function experimentDir(id: string): string {
@@ -69,23 +69,23 @@ export function saveExperiment(record: ExperimentRecord): void {
 
 export function loadExperiment(id: string): ExperimentRecord {
   if (!/^[a-z0-9-]{1,80}$/.test(id)) {
-    throw new HavrinError('USAGE', `Invalid experiment id: ${id}`);
+    throw new CaliperError('USAGE', `Invalid experiment id: ${id}`);
   }
   const file = experimentFile(id);
   let raw: string;
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch {
-    throw new HavrinError('NO_DATA', `Experiment not found: ${id}`, 'Run havrin experiment list to see available experiments.');
+    throw new CaliperError('NO_DATA', `Experiment not found: ${id}`, 'Run caliper experiment list to see available experiments.');
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new HavrinError('PARSE', `Experiment record ${id} is corrupted (invalid JSON).`);
+    throw new CaliperError('PARSE', `Experiment record ${id} is corrupted (invalid JSON).`);
   }
   if (!isValidExperimentRecord(parsed)) {
-    throw new HavrinError('PARSE', `Experiment record ${id} failed integrity validation; refusing to load.`);
+    throw new CaliperError('PARSE', `Experiment record ${id} failed integrity validation; refusing to load.`);
   }
   return parsed;
 }
@@ -148,7 +148,7 @@ export function acquireRunLock(id: string): void {
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code !== 'EEXIST') {
-        throw new HavrinError('IO', `Cannot acquire run lock for ${id}: ${errorMessage(err)}`);
+        throw new CaliperError('IO', `Cannot acquire run lock for ${id}: ${errorMessage(err)}`);
       }
       let existingPid: number | undefined;
       try {
@@ -158,7 +158,7 @@ export function acquireRunLock(id: string): void {
         existingPid = undefined; // corrupt lock → treat as stale
       }
       if (existingPid !== undefined && pidAlive(existingPid)) {
-        throw new HavrinError('IO', `Experiment ${id} is already running (pid ${existingPid}).`, 'Wait for it to finish; stale locks from dead processes are recovered automatically.');
+        throw new CaliperError('IO', `Experiment ${id} is already running (pid ${existingPid}).`, 'Wait for it to finish; stale locks from dead processes are recovered automatically.');
       }
       try {
         fs.unlinkSync(file);
@@ -167,7 +167,7 @@ export function acquireRunLock(id: string): void {
       }
     }
   }
-  throw new HavrinError('IO', `Cannot acquire run lock for ${id} after stale-lock recovery.`);
+  throw new CaliperError('IO', `Cannot acquire run lock for ${id} after stale-lock recovery.`);
 }
 
 export function releaseRunLock(id: string): void {

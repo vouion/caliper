@@ -1,8 +1,8 @@
-# Havrin Architecture (v0.3)
+# Caliper Architecture (v0.3)
 
 ## Overview
 
-Havrin is a single-process Node.js CLI. The audit pipeline is:
+Caliper is a single-process Node.js CLI. The audit pipeline is:
 
 ```
 detect → list → ingest (incremental) → environment scan → diagnostics → recommendations → report
@@ -12,7 +12,7 @@ The experiment pipeline (v0.3) closes the loop:
 
 ```
 create (benchmark + configs + fingerprints) → run (isolated trials, seeded order)
-  → execute (approval-gated backends) → verify (Havrin-run acceptance checks)
+  → execute (approval-gated backends) → verify (Caliper-run acceptance checks)
   → measure (session-adapter reuse) → compare (correctness-first verdicts)
   → link (recommendation lifecycle states)
 ```
@@ -25,7 +25,7 @@ src/
   cli.ts               Arg parsing (util.parseArgs), commands, exit codes
   audit.ts             Orchestrator: windowing, cache, coverage accounting
   doctor.ts            Read-only health checks
-  store.ts             Havrin state: incremental cache + last-audit artifact (atomic, 0600)
+  store.ts             Caliper state: incremental cache + last-audit artifact (atomic, 0600)
   version.ts
   core/
     types.ts           Normalized data model + privacy contract (the central schema)
@@ -34,7 +34,7 @@ src/
     classify.ts        Privacy-preserving segment-based command classification
     util.ts            Fingerprints (sha256, depth-capped), redaction, sanitization
     fs.ts              XDG paths, atomic writes, PATH lookup (no subprocess)
-    errors.ts          HavrinError codes: USAGE/NO_AUDIT/NO_DATA/IO/PARSE/UNSUPPORTED/INTERNAL
+    errors.ts          CaliperError codes: USAGE/NO_AUDIT/NO_DATA/IO/PARSE/UNSUPPORTED/INTERNAL
   adapters/            SESSION-READING adapters (observe history, read-only)
     adapter.ts         AgentAdapter interface: detect / listSessions / readSession
     opencode.ts        OpenCode SQLite adapter (verified v2.3.x)
@@ -57,7 +57,7 @@ src/
       opencode.ts      Primary backend (interface-verified v2.3.1)
       codex.ts         Implemented, live execution UNVERIFIED (gated)
       claude.ts        Implemented, live execution UNVERIFIED (gated)
-    metrics.ts         Havrin-run acceptance checks + session-metrics reuse
+    metrics.ts         Caliper-run acceptance checks + session-metrics reuse
     compare.ts         Aggregates + correctness-first verdict rules
     store.ts           Registry persistence, integrity validation, run locks, recovery
     runner.ts          Orchestration: approval gates, seeded order, resume semantics
@@ -122,7 +122,7 @@ Adding an agent = one adapter + fixtures + registration in `ADAPTERS`. Layout pr
 - `isSidechain` records → `subagentStats {turns, toolCalls, toolErrors}`; undefined when the agent exposes no sidechain data. Sidechain user prompts are not counted as user turns.
 - `compact_boundary.compactMetadata.trigger` → compaction reason; model changes between assistant groups → model-switch events; `<synthetic>` model messages → assistant error markers (excluded from retry-loop counting).
 - MCP tools are named `mcp__<server>__<tool>`; project MCP config comes from `.mcp.json`. Global MCP config lives in `~/.claude.json`, which is **never opened** (account/auth data) — global Claude MCP servers are therefore out of scope.
-- `~/.claude.json` and `.credentials.json` are never opened. `HAVRIN_CLAUDE_HOME` (test override) takes precedence over `CLAUDE_CONFIG_DIR` (official Claude Code override), then `~/.claude`.
+- `~/.claude.json` and `.credentials.json` are never opened. `CALIPER_CLAUDE_HOME` (test override) takes precedence over `CLAUDE_CONFIG_DIR` (official Claude Code override), then `~/.claude`.
 - File naming: filename = sessionId (verified unique across 5,422 real files); defensive dedupe keeps the newest on collision. `updatedAt` is floored to integer ms because `Date.now()` truncates while `mtimeMs` is fractional (just-written files must not fall outside the audit window).
 
 These schemas are not stable contracts. Adapters parse defensively: malformed rows/lines produce `partial: true` + capped `parseWarnings`, never exceptions that abort an audit.
@@ -143,7 +143,7 @@ One recommendation per fired rule, with the eight mandated fields (what/why/chan
 
 - Terminal: width-aware wrapping, severity badges, `NO_COLOR`/`FORCE_COLOR`/TTY handling.
 - JSON: the `AuditReport` object verbatim (`schemaVersion: '1'`), suitable for scripting.
-- `havrin report` re-renders `last-audit.json`; demo audits never overwrite real state.
+- `caliper report` re-renders `last-audit.json`; demo audits never overwrite real state.
 
 ## Experimentation engine (v0.3)
 
@@ -168,18 +168,18 @@ Every trial gets a fresh workspace: templates are copied; git sources use `git c
 
 ### Measurement and verdicts
 
-Correctness is evaluated by Havrin running acceptance checks in the workspace after the agent finishes — never agent-reported, never LLM-judged. Test counts are parsed best-effort from node:test (spec/TAP) and pytest reporters, labeled by source; exit code is authoritative. `null` means unavailable, never zero.
+Correctness is evaluated by Caliper running acceptance checks in the workspace after the agent finishes — never agent-reported, never LLM-judged. Test counts are parsed best-effort from node:test (spec/TAP) and pytest reporters, labeled by source; exit code is authoritative. `null` means unavailable, never zero.
 
 Verdict rules (deterministic, boundary-tested):
 1. Success-rate gap ≥ 1/3 with n ≥ 3 → correctness decides (faster-but-incorrect never wins).
 2. Efficiency decides only when both sides ≥ 80% success, gap < 1/3, and time improves ≥ 20% AND tokens ≥ 10%. Mixed efficiency = trade-off, no winner.
 3. Confidence: n ≥ 5 + large gap → `verified`; n ≥ 3 → `preliminary`; n < 3 → `inconclusive`. These are conservative engineering thresholds, not a full statistical test; variance (stddev/min/max) is reported alongside. No p-values are invented.
 
-Recommendation states: `proposed → ready-for-testing → experiment-running → experiment-completed → verified-improvement | no-meaningful-improvement | regression-detected | inconclusive`. Only `verified-improvement` is an experimentally proven improvement. `havrin audit` links states automatically for experiments created with `--recommendation <id>`.
+Recommendation states: `proposed → ready-for-testing → experiment-running → experiment-completed → verified-improvement | no-meaningful-improvement | regression-detected | inconclusive`. Only `verified-improvement` is an experimentally proven improvement. `caliper audit` links states automatically for experiments created with `--recommendation <id>`.
 
 ### Registry
 
-`havrinHome()/experiments/<id>/experiment.json` — definition, config fingerprints, environment metadata (agent versions, platform, Node), order seed, trial results. Deep shape validation on load; corrupt records are rejected (listed as `corrupted`, never crash). Atomic 0600 writes. Transient `scratch/` and `workspaces/` are cleaned in `finally` blocks.
+`caliperHome()/experiments/<id>/experiment.json` — definition, config fingerprints, environment metadata (agent versions, platform, Node), order seed, trial results. Deep shape validation on load; corrupt records are rejected (listed as `corrupted`, never crash). Atomic 0600 writes. Transient `scratch/` and `workspaces/` are cleaned in `finally` blocks.
 
 ## CLI contract
 
@@ -195,9 +195,9 @@ Recommendation states: `proposed → ready-for-testing → experiment-running �
 
 ## State & environment overrides
 
-State dir: `$HAVRIN_HOME` → `$XDG_DATA_HOME/havrin` → `~/.local/share/havrin`. Contains `last-audit.json` and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
+State dir: `$CALIPER_HOME` → `$XDG_DATA_HOME/caliper` → `~/.local/share/caliper`. Contains `last-audit.json` and `cache/{opencode,codex,claude}.json`, all `0600`, atomic writes.
 
-Overrides (tests and advanced use only): `HAVRIN_HOME`, `HAVRIN_OPENCODE_DATA_DIR`, `HAVRIN_OPENCODE_CONFIG_DIR`, `HAVRIN_CODEX_HOME` (also honors `CODEX_HOME`), `HAVRIN_CLAUDE_HOME` (takes precedence over `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
+Overrides (tests and advanced use only): `CALIPER_HOME`, `CALIPER_OPENCODE_DATA_DIR`, `CALIPER_OPENCODE_CONFIG_DIR`, `CALIPER_CODEX_HOME` (also honors `CODEX_HOME`), `CALIPER_CLAUDE_HOME` (takes precedence over `CLAUDE_CONFIG_DIR`). Tests must set all agent overrides plus `HOME`/`USERPROFILE` and clear `CODEX_HOME`/`CLAUDE_CONFIG_DIR` so no real user data is ever ingested.
 
 ## Subprocess policy
 

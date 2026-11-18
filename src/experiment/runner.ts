@@ -22,10 +22,10 @@ import type {
   ExecutionAgent,
   ExperimentComparison,
 } from './types.ts';
-import { HavrinError } from '../core/errors.ts';
+import { CaliperError } from '../core/errors.ts';
 import { fingerprint, sanitizeFreeText } from '../core/util.ts';
-import { havrinHome } from '../core/fs.ts';
-import { HAVRIN_VERSION } from '../version.ts';
+import { caliperHome } from '../core/fs.ts';
+import { CALIPER_VERSION } from '../version.ts';
 import { loadBenchmark, validateSource, fingerprintSource, materializeWorkspace, removeWorkspace } from './workspace.ts';
 import { validateConfig } from './validate.ts';
 import {
@@ -70,20 +70,20 @@ export interface CreateOptions {
 }
 
 export function createExperiment(opts: CreateOptions): ExperimentRecord {
-  const benchmark = loadBenchmark(opts.benchmarkRef, havrinHome());
+  const benchmark = loadBenchmark(opts.benchmarkRef, caliperHome());
   validateSource(benchmark);
   const benchmarkFingerprint = fingerprintSource(benchmark);
 
   const baseline = validateConfig(opts.baseline);
   const candidates = opts.candidates.map(validateConfig);
-  if (candidates.length === 0) throw new HavrinError('USAGE', 'At least one candidate configuration is required.');
+  if (candidates.length === 0) throw new CaliperError('USAGE', 'At least one candidate configuration is required.');
   const configs = [baseline, ...candidates];
   const ids = configs.map((c) => c.id);
-  if (new Set(ids).size !== ids.length) throw new HavrinError('USAGE', 'Configuration ids must be unique.');
+  if (new Set(ids).size !== ids.length) throw new CaliperError('USAGE', 'Configuration ids must be unique.');
 
   const trialsPerConfig = opts.trialsPerConfig ?? 3;
   if (!Number.isInteger(trialsPerConfig) || trialsPerConfig < 1 || trialsPerConfig > 20) {
-    throw new HavrinError('USAGE', 'trialsPerConfig must be an integer between 1 and 20.');
+    throw new CaliperError('USAGE', 'trialsPerConfig must be an integer between 1 and 20.');
   }
 
   const configFingerprints: Record<string, string> = {};
@@ -126,7 +126,7 @@ export function createExperiment(opts: CreateOptions): ExperimentRecord {
     recommendationIds: opts.recommendationIds ?? [],
     trials: [],
     environment: {
-      havrinVersion: HAVRIN_VERSION,
+      caliperVersion: CALIPER_VERSION,
       platform: `${process.platform}/${process.arch}`,
       nodeVersion: process.versions.node,
       agentVersions,
@@ -195,15 +195,15 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
   try {
     const current = fingerprintSource(record.benchmark);
     if (current !== record.benchmarkFingerprint) {
-      throw new HavrinError(
+      throw new CaliperError(
         'IO',
         `Benchmark source changed since experiment creation (fingerprint mismatch).`,
         'Create a new experiment to benchmark the updated source; results must be reproducible.',
       );
     }
   } catch (err) {
-    if (err instanceof HavrinError) throw err;
-    throw new HavrinError('IO', 'Benchmark source is no longer readable; cannot verify reproducibility.');
+    if (err instanceof CaliperError) throw err;
+    throw new CaliperError('IO', 'Benchmark source is no longer readable; cannot verify reproducibility.');
   }
 
   // Build the full trial plan (configs × trials), resumable.
@@ -259,7 +259,7 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
   // Approval gates (after dry-run: previewing the plan never needs approval).
   const realAgents = record.configs.filter((c) => c.agent !== 'mock');
   if (realAgents.length > 0 && !opts.approveInference) {
-    throw new HavrinError(
+    throw new CaliperError(
       'USAGE',
       'This experiment runs real coding agents (paid model inference, code modification in isolated workspaces); explicit approval via --approve-inference is required.',
       'Re-run with --approve-inference to explicitly approve. Use --dry-run to preview the plan, or mock configurations for a free demonstration.',
@@ -267,7 +267,7 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
   }
   const unverified = realAgents.filter((c) => !EXECUTION_ADAPTERS[c.agent].verified);
   if (unverified.length > 0 && !opts.allowUnverified) {
-    throw new HavrinError(
+    throw new CaliperError(
       'USAGE',
       `Execution backend(s) not yet verified against a live install: ${[...new Set(unverified.map((c) => c.agent))].join(', ')}; --allow-unverified is required.`,
       'OpenCode is the verified backend. Pass --allow-unverified to proceed at your own risk.',
@@ -280,7 +280,7 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
   save();
 
   const timeoutMs = opts.timeoutMs ?? record.benchmark.limits.timeoutMs;
-  const ephemeralBase = opts.ephemeral ? fs.mkdtempSync(path.join(os.tmpdir(), 'havrin-exp-')) : undefined;
+  const ephemeralBase = opts.ephemeral ? fs.mkdtempSync(path.join(os.tmpdir(), 'caliper-exp-')) : undefined;
   const scratch = ephemeralBase ? path.join(ephemeralBase, 'scratch') : scratchDir(id);
   fs.mkdirSync(scratch, { recursive: true });
   const wsRoot = ephemeralBase ? path.join(ephemeralBase, 'workspaces') : workspacesDir(id);
@@ -316,7 +316,7 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
           config,
           timeoutMs,
           sessionId,
-          runLabel: `havrin ${record.id} ${trial.trialId}`,
+          runLabel: `caliper ${record.id} ${trial.trialId}`,
           stdoutPath,
           startedAt,
         });
@@ -326,7 +326,7 @@ export async function runExperimentRecord(record: ExperimentRecord, opts: RunOpt
         if (outcome.sessionId) trial.sessionId = outcome.sessionId;
         if (outcome.error) trial.error = outcome.error;
 
-        // Deterministic verification by Havrin (always, even after timeouts:
+        // Deterministic verification by Caliper (always, even after timeouts:
         // partial progress is measured honestly).
         const verification = await runVerification(record.benchmark, workspace, scratch);
         trial.verification = verification;

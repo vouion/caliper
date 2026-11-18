@@ -1,14 +1,14 @@
 /**
- * havrin doctor — read-only health checks of the runtime, agent installs,
- * session storage, and Havrin's own state directory.
+ * caliper doctor — read-only health checks of the runtime, agent installs,
+ * session storage, and Caliper's own state directory.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { ADAPTERS } from './audit.ts';
 import { probeDatabase, opencodeDbPath } from './adapters/opencode.ts';
-import { havrinHome } from './core/fs.ts';
+import { caliperHome } from './core/fs.ts';
 import { scanEnvironment } from './env/environment.ts';
-import { HAVRIN_VERSION } from './version.ts';
+import { CALIPER_VERSION } from './version.ts';
 
 export type CheckStatus = 'ok' | 'warn' | 'fail';
 
@@ -37,9 +37,9 @@ export function runDoctor(projectDir?: string): DoctorResult {
     detail: `v${process.versions.node} (requires ≥ 22.13 for built-in SQLite)`,
   });
   checks.push({
-    name: 'Havrin version',
+    name: 'Caliper version',
     status: 'ok',
-    detail: `v${HAVRIN_VERSION} · platform ${process.platform}/${process.arch}`,
+    detail: `v${CALIPER_VERSION} · platform ${process.platform}/${process.arch}`,
   });
 
   // Agent installations
@@ -102,21 +102,21 @@ export function runDoctor(projectDir?: string): DoctorResult {
     checks.push({
       name: 'environment: plaintext secrets',
       status: 'warn',
-      detail: `${env.secretExposures.length} secret-looking config value(s); run havrin audit for details`,
+      detail: `${env.secretExposures.length} secret-looking config value(s); run caliper audit for details`,
     });
   }
 
-  // Havrin state dir writability
-  const home = havrinHome();
+  // Caliper state dir writability
+  const home = caliperHome();
   try {
     fs.mkdirSync(home, { recursive: true });
     const probe = path.join(home, `.doctor-probe-${process.pid}`);
     fs.writeFileSync(probe, 'ok', { mode: 0o600 });
     fs.unlinkSync(probe);
-    checks.push({ name: 'havrin: state directory', status: 'ok', detail: `${home} (writable)` });
+    checks.push({ name: 'caliper: state directory', status: 'ok', detail: `${home} (writable)` });
   } catch (err) {
     checks.push({
-      name: 'havrin: state directory',
+      name: 'caliper: state directory',
       status: 'fail',
       detail: `${home}: ${err instanceof Error ? err.message : String(err)}`,
     });

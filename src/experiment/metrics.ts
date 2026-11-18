@@ -1,7 +1,7 @@
 /**
  * Measurement system.
  *
- * Correctness is evaluated by HAVRIN running deterministic acceptance checks
+ * Correctness is evaluated by CALIPER running deterministic acceptance checks
  * in the trial workspace AFTER the agent finishes — never by the agent's own
  * claims, never by an LLM judge. Session metrics are collected by reusing the
  * existing content-free session adapters (no duplicated ingestion logic).
@@ -29,7 +29,7 @@ async function runCheckCommand(
   stdoutPath: string,
 ): Promise<{ exitCode: number | null; timedOut: boolean }> {
   // Benchmark commands are user-authored definitions (trusted local input),
-  // passed as a single argv element — Havrin never interpolates into them.
+  // passed as a single argv element — Caliper never interpolates into them.
   const argv =
     process.platform === 'win32'
       ? ['cmd.exe', '/d', '/s', '/c', command]

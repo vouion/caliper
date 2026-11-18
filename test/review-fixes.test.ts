@@ -209,9 +209,9 @@ test('H1: malformed TOML near a secret line produces content-free warnings', () 
   );
   withEnv(
     {
-      HAVRIN_CODEX_HOME: codexHome,
-      HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
-      HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+      CALIPER_CODEX_HOME: codexHome,
+      CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
+      CALIPER_CLAUDE_HOME: path.join(dir, 'none'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: home,
@@ -236,9 +236,9 @@ test('H1: malformed JSON config with a secret produces content-free warnings', (
   fs.writeFileSync(path.join(ocConfig, 'opencode.json'), '{"apiKey": "sk-H1JSONSENTINEL777", broken');
   withEnv(
     {
-      HAVRIN_OPENCODE_CONFIG_DIR: ocConfig,
-      HAVRIN_CODEX_HOME: path.join(dir, 'none'),
-      HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+      CALIPER_OPENCODE_CONFIG_DIR: ocConfig,
+      CALIPER_CODEX_HOME: path.join(dir, 'none'),
+      CALIPER_CLAUDE_HOME: path.join(dir, 'none'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: path.join(dir, 'home'),
@@ -270,11 +270,11 @@ test('M6: semantically corrupt cache entries are dropped, audit survives', () =>
   const state = path.join(dir, 'state');
   withEnv(
     {
-      HAVRIN_HOME: state,
-      HAVRIN_OPENCODE_DATA_DIR: dataDir,
-      HAVRIN_OPENCODE_CONFIG_DIR: path.join(home, '.config', 'opencode'),
-      HAVRIN_CODEX_HOME: path.join(dir, 'none'),
-      HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+      CALIPER_HOME: state,
+      CALIPER_OPENCODE_DATA_DIR: dataDir,
+      CALIPER_OPENCODE_CONFIG_DIR: path.join(home, '.config', 'opencode'),
+      CALIPER_CODEX_HOME: path.join(dir, 'none'),
+      CALIPER_CLAUDE_HOME: path.join(dir, 'none'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: home,
@@ -298,7 +298,7 @@ test('M6: semantically corrupt cache entries are dropped, audit survives', () =>
 
 test('M6: semantically corrupt last-audit is rejected by loadLastAudit', () => {
   const dir = tempDir();
-  withEnv({ HAVRIN_HOME: dir }, () => {
+  withEnv({ CALIPER_HOME: dir }, () => {
     fs.writeFileSync(path.join(dir, 'last-audit.json'), JSON.stringify({ schemaVersion: '1', mode: 'real', sessions: 'not-an-array' }));
     assert.equal(loadLastAudit(), undefined);
     fs.writeFileSync(path.join(dir, 'last-audit.json'), JSON.stringify({ schemaVersion: '1' }));
@@ -309,7 +309,7 @@ test('M6: semantically corrupt last-audit is rejected by loadLastAudit', () => {
 
 test('M6: cache round-trip still works for valid entries', () => {
   const dir = tempDir();
-  withEnv({ HAVRIN_HOME: dir }, () => {
+  withEnv({ CALIPER_HOME: dir }, () => {
     const rec = session('ses_valid', []);
     const entries = new Map([['ses_valid', { signature: 's1', record: rec }]]);
     saveCache('opencode', entries);
@@ -336,7 +336,7 @@ test('L2: duplicate codex session ids are deduped to the newest rollout', () => 
   ], ['2026', '11', '10']);
   const past = new Date(Date.now() - 86_400_000);
   fs.utimesSync(f1, past, past);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const metas = adapter.listSessions(inst);
@@ -357,7 +357,7 @@ test('L8: reported failed status survives missing output', () => {
     codexLine('session_meta', sessionMetaPayload(sid)),
     codexLine('response_item', { type: 'custom_tool_call', call_id: 'c1', name: 'exec', input: 'false', status: 'failed' }, '2026-11-10T10:00:01.000Z'),
   ]);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -378,7 +378,7 @@ test('H2: codex function_call JSON command input classifies tests', () => {
     codexLine('response_item', { type: 'function_call', call_id: 'c1', name: 'shell', input: JSON.stringify({ command: ['bash', '-lc', 'npm test'] }) }, '2026-11-10T10:00:01.000Z'),
     codexLine('response_item', { type: 'function_call_output', call_id: 'c1', output: 'ok' }, '2026-11-10T10:00:02.000Z'),
   ]);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -402,7 +402,7 @@ test('codex: multiple token_usage_records attach to successive assistant turns',
     codexLine('response_item', { type: 'message', role: 'assistant', id: 'm2', content: [{ type: 'output_text', text: 'b' }] }, '2026-11-10T10:00:03.000Z'),
     codexLine('token_usage_record', usage(20), '2026-11-10T10:00:04.000Z'),
   ]);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -428,7 +428,7 @@ test('L7: WAL-mode fixture database ingests read-only', () => {
   db.close();
   const dbPath = path.join(dataDir, 'opencode.db');
   const before = fs.readFileSync(dbPath);
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
+  withEnv({ CALIPER_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     assert.equal(inst.layout, 'sqlite-v2');
@@ -450,7 +450,7 @@ test('L7: oversized OpenCode message volume is skipped with a warning', () => {
     'INSERT INTO session_message (id, session_id, type, seq, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?, zeroblob(?))',
   ).run('msg_big', 'ses_big', 'assistant', 1, NOW, NOW, 128 * 1024 * 1024 + 1);
   db.close();
-  withEnv({ HAVRIN_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
+  withEnv({ CALIPER_OPENCODE_DATA_DIR: dataDir, PATH: '' }, () => {
     const adapter = new OpenCodeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -475,7 +475,7 @@ test('M7: claude ai-title is truncated to 120 chars', () => {
     ccUserText('x'),
     { type: 'ai-title', sessionId: 'title-sid', aiTitle: longTitle },
   ]);
-  withEnv({ HAVRIN_CLAUDE_HOME: home, CLAUDE_CONFIG_DIR: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CLAUDE_HOME: home, CLAUDE_CONFIG_DIR: undefined, PATH: '' }, () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);

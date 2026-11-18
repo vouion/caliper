@@ -8,7 +8,7 @@
  * SECURITY: bypassPermissions removes Claude's permission prompts. It is
  * used ONLY inside disposable trial workspaces and ONLY behind the explicit
  * --approve-inference gate. The transcript is written to the user's normal
- * Claude projects dir (Claude controls that); Havrin reads it read-only via
+ * Claude projects dir (Claude controls that); Caliper reads it read-only via
  * the existing session adapter and never retains conversation content.
  */
 import type { ExecutionAdapter, ExecutionRequest, ExecutionOutcome } from './adapter.ts';

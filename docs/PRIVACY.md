@@ -1,18 +1,18 @@
-# Havrin Privacy & Security Model
+# Caliper Privacy & Security Model
 
-Havrin processes potentially sensitive development data. This document states exactly what it touches, what it keeps, and what it guarantees — and how each guarantee is enforced and tested.
+Caliper processes potentially sensitive development data. This document states exactly what it touches, what it keeps, and what it guarantees — and how each guarantee is enforced and tested.
 
 ## Data flow
 
 ```
 agent storage (read-only) ──► adapter ──► normalized model ──► rules ──► report
                                    │
-                                   └──► Havrin state dir (0600, local)
+                                   └──► Caliper state dir (0600, local)
 ```
 
-There is **no network path** in Havrin: no telemetry, no update checks, no remote pricing, no LLM calls. Analysis is fully local and deterministic.
+There is **no network path** in Caliper: no telemetry, no update checks, no remote pricing, no LLM calls. Analysis is fully local and deterministic.
 
-## What Havrin reads
+## What Caliper reads
 
 | Source | Access | Notes |
 |---|---|---|
@@ -36,7 +36,7 @@ Only structural metadata is extracted from transcripts. Never retained, under an
 
 Every one of these paths is sentinel-tested in `test/claude-privacy.test.ts`.
 
-## What Havrin keeps
+## What Caliper keeps
 
 The normalized model (`src/core/types.ts`) and everything derived from it (findings, recommendations, reports, cache) contain:
 
@@ -55,15 +55,15 @@ They never contain:
 
 ## Secret handling
 
-1. **Config scanning** walks config keys; keys matching secret patterns (`apiKey`, `token`, `password`, …) with literal string values are recorded as *exposures* — key path + file only. The value is never copied into any Havrin structure. `{env:VAR}` references are not flagged.
+1. **Config scanning** walks config keys; keys matching secret patterns (`apiKey`, `token`, `password`, …) with literal string values are recorded as *exposures* — key path + file only. The value is never copied into any Caliper structure. `{env:VAR}` references are not flagged.
 2. **Redaction** (`redactSecrets`) strips common credential shapes (OpenAI/Anthropic-style keys, GitHub tokens, Slack tokens, AWS access keys, JWTs, `api_key=…` assignments) from the one place free text can enter: truncated tool error messages. Redaction runs **before** truncation so secrets straddling the cut boundary cannot survive as partial prefixes.
-3. **Parse errors are content-free.** JSON/TOML parser exception messages embed source snippets (potentially secrets); Havrin never propagates them into warnings, reports, or stderr — only a generic message plus optional line/column position.
-4. **Credential stores are never queried or opened**, so database/file-stored tokens cannot leak through Havrin even in principle.
+3. **Parse errors are content-free.** JSON/TOML parser exception messages embed source snippets (potentially secrets); Caliper never propagates them into warnings, reports, or stderr — only a generic message plus optional line/column position.
+4. **Credential stores are never queried or opened**, so database/file-stored tokens cannot leak through Caliper even in principle.
 
 ## Storage guarantees
 
 - Agent source data is never modified. Tests assert byte-for-byte equality of the fixture DB and rollout files after ingestion.
-- Havrin state (`last-audit.json`, `cache/*.json`) is written atomically (tmp + rename) with mode `0600`.
+- Caliper state (`last-audit.json`, `cache/*.json`) is written atomically (tmp + rename) with mode `0600`.
 - Demo mode uses fabricated data and never writes the real cache or last-audit artifact.
 
 ## Enforcement

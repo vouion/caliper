@@ -6,7 +6,7 @@
 import type { AuditReport, Finding, Recommendation, Severity } from '../core/types.ts';
 import { formatCost, formatDate, formatDuration, formatTokens, sanitizeControlChars } from '../core/util.ts';
 import { countBySeverity } from '../diagnostics/rules.ts';
-import { havrinHome } from '../core/fs.ts';
+import { caliperHome } from '../core/fs.ts';
 import path from 'node:path';
 
 /** Defense in depth: no free text reaches the terminal with control chars. */
@@ -102,7 +102,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
 
   // Header
   push('');
-  push(p.bold(`havrin v${report.havrinVersion}`) + p.dim(' · development environment audit'));
+  push(p.bold(`caliper v${report.caliperVersion}`) + p.dim(' · development environment audit'));
   if (report.mode === 'demo') {
     push(p.yellow(p.bold('SYNTHETIC DEMONSTRATION DATA — fabricated sessions, not your data.')));
   }
@@ -146,7 +146,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
     else if (c.sessionsDiscovered === 0) reasons.push('Agents were detected but no session storage was found.');
     else reasons.push(`No sessions were updated within the analysis window (last ${formatDuration(report.window.until - report.window.since)}). Try --since 90d or --all.`);
     for (const r of reasons) push(...wrap(r, width, '  '));
-    push(...wrap('To see Havrin in action without importing personal data, run: havrin demo', width, '  '));
+    push(...wrap('To see Caliper in action without importing personal data, run: caliper demo', width, '  '));
   }
   for (const w of c.parseWarnings.slice(0, 5)) {
     push(p.dim('  parse: ' + w));
@@ -210,7 +210,7 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   push(p.dim('or credentials were transmitted or stored in this report. Original agent data'));
   push(p.dim('was opened read-only and never modified.'));
   if (report.mode === 'real') {
-    push(p.dim(`Report artifact: ${path.join(havrinHome(), 'last-audit.json')} (havrin report --format json)`));
+    push(p.dim(`Report artifact: ${path.join(caliperHome(), 'last-audit.json')} (caliper report --format json)`));
   }
   push('');
   return out.join('\n');

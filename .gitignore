@@ -4,4 +4,4 @@ coverage/
 *.log
 *.tgz
 .DS_Store
-.havrin/
+.caliper/

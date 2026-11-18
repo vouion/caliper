@@ -97,12 +97,12 @@ function setup() {
 
 function envFor(s: ReturnType<typeof setup>): Record<string, string | undefined> {
   return {
-    HAVRIN_HOME: path.join(s.dir, 'state'),
-    HAVRIN_CLAUDE_HOME: s.claudeHome,
+    CALIPER_HOME: path.join(s.dir, 'state'),
+    CALIPER_CLAUDE_HOME: s.claudeHome,
     CLAUDE_CONFIG_DIR: undefined,
-    HAVRIN_OPENCODE_DATA_DIR: path.join(s.dir, 'no-oc'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(s.dir, 'no-oc-cfg'),
-    HAVRIN_CODEX_HOME: path.join(s.dir, 'no-cx'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(s.dir, 'no-oc'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(s.dir, 'no-oc-cfg'),
+    CALIPER_CODEX_HOME: path.join(s.dir, 'no-cx'),
     CODEX_HOME: undefined,
     HOME: s.home,
     USERPROFILE: s.home,

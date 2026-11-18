@@ -1,4 +1,4 @@
-# Havrin Roadmap
+# Caliper Roadmap
 
 Status legend: ✅ implemented · 🚧 in progress · 🗺 planned (not implemented).
 This file must match reality — planned features are never described as available.
@@ -7,10 +7,10 @@ This file must match reality — planned features are never described as availab
 
 The complete observe → diagnose → recommend loop, zero LLM, zero network.
 
-- ✅ `havrin doctor` — runtime/agent/storage health checks
-- ✅ `havrin audit` — detect → ingest → environment scan → diagnostics → recommendations
-- ✅ `havrin report --format json|terminal` — re-render last audit
-- ✅ `havrin demo` — labeled synthetic dataset exercising all rules
+- ✅ `caliper doctor` — runtime/agent/storage health checks
+- ✅ `caliper audit` — detect → ingest → environment scan → diagnostics → recommendations
+- ✅ `caliper report --format json|terminal` — re-render last audit
+- ✅ `caliper demo` — labeled synthetic dataset exercising all rules
 - ✅ OpenCode adapter (SQLite, verified v2.3.1), Codex adapter (JSONL rollouts, verified 0.169.1)
 - ✅ Incremental ingestion cache with signature invalidation
 - ✅ 8 deterministic rules with evidence + confidence (see README table)
@@ -43,12 +43,12 @@ The observe → diagnose → **experiment → verify** loop, with correctness-fi
 - ✅ Seeded-random execution order, multi-trial repetition (1–20), hard timeouts, process-group termination
 - ✅ Execution adapters separate from session adapters: mock (deterministic, free), OpenCode (interface-verified v2.3.1), Codex + Claude (implemented, live execution UNVERIFIED, extra-gated)
 - ✅ Approval gates: `--approve-inference` for paid runs; `--allow-unverified` for unverified backends; `--dry-run` preview without approval
-- ✅ Havrin-run deterministic verification (never agent-reported, never LLM-judged); test-count parsing (node:test spec/TAP, pytest) labeled by source
+- ✅ Caliper-run deterministic verification (never agent-reported, never LLM-judged); test-count parsing (node:test spec/TAP, pytest) labeled by source
 - ✅ Metrics via existing session adapters: tokens (all categories), agent-reported cost, tool calls/errors, retries, compactions; null ≠ zero
 - ✅ Correctness-first verdicts: faster-but-incorrect never wins; efficiency requires material time AND token gains; confidence verified/preliminary/inconclusive with documented thresholds
-- ✅ Recommendation lifecycle states (proposed → … → verified-improvement / regression-detected / inconclusive), auto-linked in `havrin audit`
+- ✅ Recommendation lifecycle states (proposed → … → verified-improvement / regression-detected / inconclusive), auto-linked in `caliper audit`
 - ✅ Run locks, stale-lock recovery, interrupted-run resume, completed-trial duplicate protection
-- ✅ `havrin experiment list|create|run|report|inspect|demo`; terminal + JSON reports
+- ✅ `caliper experiment list|create|run|report|inspect|demo`; terminal + JSON reports
 - ✅ Privacy: no conversation content in registry; transient stdout artifacts deleted; workspace isolation tested; sentinel tests
 - ✅ 182 automated tests; full v0.2 suite re-run with no regressions
 - ⚠ Live paid-model experiments have NOT been run by the maintainers (approval-gated); real-run verification is the first v0.3.x item
@@ -60,7 +60,7 @@ The observe → diagnose → **experiment → verify** loop, with correctness-fi
 - 🗺 OpenCode legacy JSON storage support (pre-2.x installs)
 - 🗺 Codex: richer tool taxonomy (web search, MCP calls) and better failure inference validated against more versions
 - 🗺 Claude: global MCP visibility without opening auth-bearing files (e.g. user-declared server list)
-- 🗺 Report diffing (`havrin report --compare <file>`) and experiment history tracking (`havrin experiment compare`)
+- 🗺 Report diffing (`caliper report --compare <file>`) and experiment history tracking (`caliper experiment compare`)
 - 🗺 Packaging: npm publish, GitHub releases, checksums; Windows CI leg
 
 ## v0.4 — Deeper session intelligence 🗺

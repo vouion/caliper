@@ -23,7 +23,7 @@ function baseLines(sessionId = SID): unknown[] {
 
 test('codex detect: missing home is graceful', () => {
   const { dir } = setup();
-  withEnv({ HAVRIN_CODEX_HOME: path.join(dir, 'missing'), CODEX_HOME: undefined }, () => {
+  withEnv({ CALIPER_CODEX_HOME: path.join(dir, 'missing'), CODEX_HOME: undefined }, () => {
     const inst = new CodexAdapter().detect();
     assert.equal(inst.layout, undefined);
     assert.deepEqual(new CodexAdapter().listSessions(inst), []);
@@ -47,7 +47,7 @@ test('codex ingest: messages, tool calls with outputs, token usage', () => {
   writeCodexRollout(home, SID, lines);
   fs.writeFileSync(path.join(home, 'session_index.jsonl'), JSON.stringify({ id: SID, thread_name: 'Fixture thread' }) + '\n');
 
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     assert.equal(inst.layout, 'jsonl-rollout');
@@ -87,7 +87,7 @@ test('codex ingest: orphan output with name is recovered with unique fingerprint
     codexLine('response_item', { type: 'custom_tool_call_output', id: 'o2', call_id: 'missing2', name: 'exec', output: '{"exit_code":1}' }, '2026-11-10T10:00:04.000Z'),
   ];
   writeCodexRollout(home, SID, lines);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -110,7 +110,7 @@ test('codex ingest: unmatched call (interrupted) gets unknown status', () => {
     codexLine('event_msg', { type: 'turn_aborted' }, '2026-11-10T10:00:04.000Z'),
   ];
   writeCodexRollout(home, SID, lines);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -131,7 +131,7 @@ test('codex ingest: malformed lines produce partial record', () => {
     '42',
   ];
   writeCodexRollout(home, SID, lines);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -150,7 +150,7 @@ test('codex: apply_patch target path extraction', () => {
     codexLine('response_item', { type: 'custom_tool_call_output', call_id: 'c1', output: 'Success' }, '2026-11-10T10:00:04.000Z'),
   ];
   writeCodexRollout(home, SID, lines);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -168,7 +168,7 @@ test('codex: rollout files are never modified', () => {
   const { dir, home } = setup();
   const file = writeCodexRollout(home, SID, baseLines());
   const before = fs.readFileSync(file);
-  withEnv({ HAVRIN_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
+  withEnv({ CALIPER_CODEX_HOME: home, CODEX_HOME: undefined, PATH: '' }, () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     adapter.readSession(inst, adapter.listSessions(inst)[0]!);

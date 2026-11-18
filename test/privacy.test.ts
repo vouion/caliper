@@ -87,11 +87,11 @@ test('audit report contains no secrets, user text, tool output, or raw input', (
   const s = setup();
   withEnv(
     {
-      HAVRIN_HOME: path.join(s.dir, 'havrin-state'),
-      HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
-      HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
-      HAVRIN_CODEX_HOME: s.codexHome,
-      HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
+      CALIPER_HOME: path.join(s.dir, 'caliper-state'),
+      CALIPER_OPENCODE_DATA_DIR: s.dataDir,
+      CALIPER_OPENCODE_CONFIG_DIR: s.ocConfig,
+      CALIPER_CODEX_HOME: s.codexHome,
+      CALIPER_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: s.home,
@@ -108,13 +108,13 @@ test('audit report contains no secrets, user text, tool output, or raw input', (
       // The sanitized tool error message may appear, but redacted.
       assert.ok(!serialized.includes('sk-user-secret-key-99999'));
       // Persisted artifact obeys the same contract.
-      const artifact = fs.readFileSync(path.join(s.dir, 'havrin-state', 'last-audit.json'), 'utf8');
+      const artifact = fs.readFileSync(path.join(s.dir, 'caliper-state', 'last-audit.json'), 'utf8');
       for (const secret of SECRETS) {
         assert.ok(!artifact.includes(secret), `artifact leaked: ${secret}`);
       }
       // Cache obeys the same contract.
-      for (const f of fs.readdirSync(path.join(s.dir, 'havrin-state', 'cache'))) {
-        const cached = fs.readFileSync(path.join(s.dir, 'havrin-state', 'cache', f), 'utf8');
+      for (const f of fs.readdirSync(path.join(s.dir, 'caliper-state', 'cache'))) {
+        const cached = fs.readFileSync(path.join(s.dir, 'caliper-state', 'cache', f), 'utf8');
         for (const secret of SECRETS) {
           assert.ok(!cached.includes(secret), `cache leaked: ${secret}`);
         }
@@ -128,11 +128,11 @@ test('state files are written with restrictive permissions', () => {
   const s = setup();
   withEnv(
     {
-      HAVRIN_HOME: path.join(s.dir, 'havrin-state'),
-      HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
-      HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
-      HAVRIN_CODEX_HOME: s.codexHome,
-      HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
+      CALIPER_HOME: path.join(s.dir, 'caliper-state'),
+      CALIPER_OPENCODE_DATA_DIR: s.dataDir,
+      CALIPER_OPENCODE_CONFIG_DIR: s.ocConfig,
+      CALIPER_CODEX_HOME: s.codexHome,
+      CALIPER_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: s.home,
@@ -141,7 +141,7 @@ test('state files are written with restrictive permissions', () => {
     },
     () => {
       runAudit({ sinceMs: 86_400_000 });
-      const mode = fs.statSync(path.join(s.dir, 'havrin-state', 'last-audit.json')).mode & 0o777;
+      const mode = fs.statSync(path.join(s.dir, 'caliper-state', 'last-audit.json')).mode & 0o777;
       assert.equal(mode, 0o600);
     },
   );

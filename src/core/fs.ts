@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { HavrinError, errorMessage } from './errors.ts';
+import { CaliperError, errorMessage } from './errors.ts';
 
 export function homeDir(): string {
   return os.homedir();
@@ -20,11 +20,11 @@ export function xdgConfigHome(): string {
   return path.join(homeDir(), '.config');
 }
 
-/** Havrin state directory. HAVRIN_HOME override exists for tests and advanced use. */
-export function havrinHome(): string {
-  const env = process.env['HAVRIN_HOME'];
+/** Caliper state directory. CALIPER_HOME override exists for tests and advanced use. */
+export function caliperHome(): string {
+  const env = process.env['CALIPER_HOME'];
   if (env && path.isAbsolute(env)) return env;
-  return path.join(xdgDataHome(), 'havrin');
+  return path.join(xdgDataHome(), 'caliper');
 }
 
 export function readJsonFile(file: string): unknown {
@@ -32,14 +32,14 @@ export function readJsonFile(file: string): unknown {
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch (err) {
-    throw new HavrinError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
+    throw new CaliperError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
   }
   try {
     return JSON.parse(raw) as unknown;
   } catch {
     // Never include the parser's message: V8 embeds source snippets, which
     // could carry secrets from a malformed config into warnings/reports.
-    throw new HavrinError('PARSE', `Invalid JSON in ${file}`);
+    throw new CaliperError('PARSE', `Invalid JSON in ${file}`);
   }
 }
 
@@ -63,7 +63,7 @@ export function writeJsonAtomic(file: string, value: unknown): void {
     } catch {
       /* best effort cleanup */
     }
-    throw new HavrinError('IO', `Cannot write ${file}: ${errorMessage(err)}`);
+    throw new CaliperError('IO', `Cannot write ${file}: ${errorMessage(err)}`);
   }
 }
 

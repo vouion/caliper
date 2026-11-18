@@ -1,6 +1,6 @@
 # Review Status
 
-Havrin's security/correctness review history, recorded honestly. "Independent" means a separate read-only reviewer agent inspecting the code without shell access; "self-review" means the maintainer tracing the same paths (weaker, disclosed as such).
+Caliper's security/correctness review history, recorded honestly. "Independent" means a separate read-only reviewer agent inspecting the code without shell access; "self-review" means the maintainer tracing the same paths (weaker, disclosed as such).
 
 ## v0.1 — independent review: COMPLETE, remediated
 

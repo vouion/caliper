@@ -1,12 +1,12 @@
 /**
  * Local state: incremental ingestion cache + last audit artifact.
- * Everything lives under havrinHome() (default ~/.local/share/havrin),
+ * Everything lives under caliperHome() (default ~/.local/share/caliper),
  * written atomically with 0600 permissions. Nothing leaves the machine.
  */
 import path from 'node:path';
 import fs from 'node:fs';
 import type { AgentId, AuditReport, SessionRecord } from './core/types.ts';
-import { havrinHome, writeJsonAtomic } from './core/fs.ts';
+import { caliperHome, writeJsonAtomic } from './core/fs.ts';
 import { errorMessage } from './core/errors.ts';
 import { isValidSessionRecord, isValidFinding, isValidRecommendation, isValidSessionSummary, isObj, isNum } from './core/validate.ts';
 
@@ -23,11 +23,11 @@ interface CacheFile {
 }
 
 export function lastAuditPath(): string {
-  return path.join(havrinHome(), 'last-audit.json');
+  return path.join(caliperHome(), 'last-audit.json');
 }
 
 function cachePath(agent: AgentId): string {
-  return path.join(havrinHome(), 'cache', `${agent}.json`);
+  return path.join(caliperHome(), 'cache', `${agent}.json`);
 }
 
 export function loadCache(agent: AgentId): Map<string, { signature: string; record: SessionRecord }> {

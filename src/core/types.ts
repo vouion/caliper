@@ -1,5 +1,5 @@
 /**
- * Havrin normalized data model.
+ * Caliper normalized data model.
  *
  * Adapters translate agent-specific session storage into these shapes.
  * Diagnostics and reporting consume only this model, never raw storage.
@@ -226,7 +226,7 @@ export interface Recommendation {
   /** 6. Expected benefits and trade-offs. */
   benefits: string;
   tradeoffs: string;
-  /** 7. How to apply the change (manual steps; Havrin never auto-applies in v0.1). */
+  /** 7. How to apply the change (manual steps; Caliper never auto-applies in v0.1). */
   apply: string[];
   /** 8. How to reverse it. */
   rollback: string[];
@@ -266,7 +266,7 @@ export interface AuditCoverage {
 
 export interface AuditReport {
   schemaVersion: '1';
-  havrinVersion: string;
+  caliperVersion: string;
   generatedAt: number;
   /** "demo" reports are built from clearly-labeled synthetic data. */
   mode: 'real' | 'demo';

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-export function tempDir(prefix = 'havrin-test-'): string {
+export function tempDir(prefix = 'caliper-test-'): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 

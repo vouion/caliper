@@ -38,11 +38,11 @@ const NOW = 1_800_000_000_000;
 function fullEnv(dir: string, extra: Record<string, string | undefined> = {}): Record<string, string | undefined> {
   const home = path.join(dir, 'home');
   return {
-    HAVRIN_HOME: path.join(dir, 'state'),
-    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
-    HAVRIN_CODEX_HOME: path.join(dir, 'no-cx'),
-    HAVRIN_CLAUDE_HOME: path.join(dir, 'no-claude'),
+    CALIPER_HOME: path.join(dir, 'state'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
+    CALIPER_CODEX_HOME: path.join(dir, 'no-cx'),
+    CALIPER_CLAUDE_HOME: path.join(dir, 'no-claude'),
     CODEX_HOME: undefined,
     CLAUDE_CONFIG_DIR: undefined,
     HOME: home,
@@ -107,7 +107,7 @@ test('M-2: ESC-bearing Claude ai-title is sanitized at ingestion and render', ()
     ccUserText('x'),
     { type: 'ai-title', sessionId: 'esc-sid', aiTitle: 'Evil\u001b[2J\u001b[1;1HFAKE REPORT LINE\r\nTitle' },
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -130,7 +130,7 @@ test('M-2: ESC-bearing file paths are sanitized at ingestion', () => {
     ccAssistant({ messageId: 'm1', blocks: [ccToolUse('t1', 'Read', { file_path: '/tmp/evil\u001b[31m.ts' })] }),
     ccToolResult({ toolUseId: 't1' }),
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -206,7 +206,7 @@ test('M-1: cache entries with null events / missing tools / missing warnings are
     partial: false, parseWarnings: [],
     source: { kind: 'sqlite', location: 'f', signature: 's' },
   };
-  withEnv({ HAVRIN_HOME: dir }, () => {
+  withEnv({ CALIPER_HOME: dir }, () => {
     const entries = new Map<string, { signature: string; record: unknown }>([
       ['null-event', { signature: 's', record: { ...base, id: 'null-event', events: [null] } }],
       ['no-tools', { signature: 's', record: { ...base, id: 'no-tools', events: [{ kind: 'assistant', at: NOW, id: 'a', textChars: 0, reasoningChars: 0 }] } }],
@@ -237,7 +237,7 @@ test('M-1: audit survives a semantically corrupt cache (re-reads instead of cras
     schemaVersion: 1, agent: 'opencode',
     entries: { ses_m1: { signature: 'fake', record: { agent: 'opencode', id: 'ses_m1', createdAt: NOW, updatedAt: NOW, partial: true, events: [null], source: { kind: 'sqlite', location: 'f', signature: 's' } } } },
   }));
-  withEnv(fullEnv(dir, { HAVRIN_HOME: state, HAVRIN_OPENCODE_DATA_DIR: dataDir, HAVRIN_OPENCODE_CONFIG_DIR: path.join(home, '.config', 'opencode') }), () => {
+  withEnv(fullEnv(dir, { CALIPER_HOME: state, CALIPER_OPENCODE_DATA_DIR: dataDir, CALIPER_OPENCODE_CONFIG_DIR: path.join(home, '.config', 'opencode') }), () => {
     const { report } = runAudit({ sinceMs: 86_400_000 });
     assert.equal(report.coverage.sessionsAnalyzed, 1);
     assert.equal(report.coverage.sessionsFromCache, 0);
@@ -248,7 +248,7 @@ test('M-1: audit survives a semantically corrupt cache (re-reads instead of cras
 test('M-1: artifact with null findings / empty recommendations / null sessions is rejected', () => {
   const dir = tempDir();
   const valid = runDemoAudit();
-  withEnv({ HAVRIN_HOME: dir }, () => {
+  withEnv({ CALIPER_HOME: dir }, () => {
     for (const corrupt of [
       { ...valid, findings: [null] },
       { ...valid, recommendations: [{}] },
@@ -275,7 +275,7 @@ test('L-1: assistant record without message.id produces partial + warning', () =
   const rec = ccAssistant({ messageId: 'm1', blocks: [{ type: 'text', text: 'hi' }] });
   delete (rec['message'] as Record<string, unknown>)['id'];
   writeClaudeTranscript(home, '-p', 'noid-sid', [rec]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -293,7 +293,7 @@ test('L-1: intra-group usage disagreement warns and keeps first usage', () => {
     ccAssistant({ messageId: 'm1', blocks: [{ type: 'thinking', thinking: 'x' }], usage: { input_tokens: 1, output_tokens: 10 } }),
     ccAssistant({ messageId: 'm1', blocks: [{ type: 'text', text: 'y' }], usage: { input_tokens: 1, output_tokens: 999 } }),
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -317,7 +317,7 @@ test('L-2: malformed cost-state entry warns; truthy hasUnknownModelCost suppress
       modelUsage: { good: { inputTokens: 1, outputTokens: 2 }, bad: 'not-an-object' },
     },
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -344,7 +344,7 @@ test('L-4: codex findRollout matches exact id suffix, not substring', () => {
     codexLine('session_meta', sessionMetaPayload(longId)),
     codexLine('response_item', { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'long-id session' }] }, '2026-11-10T10:00:01.000Z'),
   ], ['2026', '11', '10']);
-  withEnv(fullEnv(dir, { HAVRIN_CODEX_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CODEX_HOME: home }), () => {
     const adapter = new CodexAdapter();
     const inst = adapter.detect();
     // Bypass listSessions so the path map is empty and findRollout is used.
@@ -360,7 +360,7 @@ test('L-4: codex findRollout matches exact id suffix, not substring', () => {
 // L-6: additional Claude behavior coverage
 // ---------------------------------------------------------------------------
 
-test('L-6: CLAUDE_CONFIG_DIR is honored; HAVRIN_CLAUDE_HOME takes precedence', () => {
+test('L-6: CLAUDE_CONFIG_DIR is honored; CALIPER_CLAUDE_HOME takes precedence', () => {
   const dir = tempDir();
   const official = path.join(dir, 'official-claude');
   const override = path.join(dir, 'override-claude');
@@ -368,13 +368,13 @@ test('L-6: CLAUDE_CONFIG_DIR is honored; HAVRIN_CLAUDE_HOME takes precedence', (
   fs.mkdirSync(override, { recursive: true });
   writeClaudeTranscript(official, '-p', 'official-sid', [ccUserText('official')]);
   writeClaudeTranscript(override, '-p', 'override-sid', [ccUserText('override')]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: undefined, CLAUDE_CONFIG_DIR: official }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: undefined, CLAUDE_CONFIG_DIR: official }), () => {
     assert.equal(claudeHome(), official);
     const adapter = new ClaudeAdapter();
     const metas = adapter.listSessions(adapter.detect());
     assert.deepEqual(metas.map((m) => m.id), ['official-sid']);
   });
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: override, CLAUDE_CONFIG_DIR: official }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: override, CLAUDE_CONFIG_DIR: official }), () => {
     assert.equal(claudeHome(), override);
   });
   cleanup(dir);
@@ -388,7 +388,7 @@ test('L-6: tool_result appearing before its tool_use still resolves', () => {
     ccToolResult({ toolUseId: 't1', isError: true, at: '2026-11-10T10:00:01.000Z' }),
     ccAssistant({ messageId: 'm1', at: '2026-11-10T10:00:02.000Z', blocks: [ccToolUse('t1', 'Bash', { command: 'false' })] }),
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -403,7 +403,7 @@ test('L-6: parse warnings are capped at 20', () => {
   const home = path.join(dir, 'claude');
   fs.mkdirSync(home, { recursive: true });
   writeClaudeTranscript(home, '-p', 'manybad-sid', Array.from({ length: 30 }, () => '{bad json'));
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -421,7 +421,7 @@ test('L-6: image-only user content counts as a turn; empty string does not', () 
     { type: 'user', uuid: 'u1', timestamp: '2026-11-10T10:00:00.000Z', cwd: '/p', isSidechain: false, message: { role: 'user', content: [{ type: 'image', source: { data: 'x' } }] } },
     { type: 'user', uuid: 'u2', timestamp: '2026-11-10T10:00:01.000Z', cwd: '/p', isSidechain: false, message: { role: 'user', content: '' } },
   ]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);
@@ -434,7 +434,7 @@ test('L-6: image-only user content counts as a turn; empty string does not', () 
 
 test('L-6: cache eviction keeps the newest 2000 entries', () => {
   const dir = tempDir();
-  withEnv({ HAVRIN_HOME: dir }, () => {
+  withEnv({ CALIPER_HOME: dir }, () => {
     const entries = new Map<string, { signature: string; record: SessionRecord }>();
     for (let i = 0; i < 2001; i++) {
       entries.set(`s${i}`, { signature: 's', record: session(`s${i}`, [], 'opencode') });
@@ -466,7 +466,7 @@ test('H-1: deep-nesting processing error yields content-free warning', () => {
     message: { id: 'm1', role: 'assistant', model: 'claude-x', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: JSON.parse(nested) }] },
   });
   writeClaudeTranscript(home, '-p', 'deep-sid', [line]);
-  withEnv(fullEnv(dir, { HAVRIN_CLAUDE_HOME: home }), () => {
+  withEnv(fullEnv(dir, { CALIPER_CLAUDE_HOME: home }), () => {
     const adapter = new ClaudeAdapter();
     const inst = adapter.detect();
     const record = adapter.readSession(inst, adapter.listSessions(inst)[0]!);

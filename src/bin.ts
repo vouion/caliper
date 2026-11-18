@@ -9,7 +9,7 @@ const major = Number(majorRaw);
 const minor = Number(minorRaw);
 if (!(major > 22 || (major === 22 && minor >= 13))) {
   process.stderr.write(
-    `havrin requires Node.js >= 22.13 (found v${process.versions.node}).\n` +
+    `caliper requires Node.js >= 22.13 (found v${process.versions.node}).\n` +
       'The built-in node:sqlite module is unavailable on older versions.\n' +
       'Upgrade Node.js: https://nodejs.org/\n',
   );

@@ -78,7 +78,7 @@ export function spawnControlled(
       out = fs.createWriteStream(opts.stdoutPath, { flags: 'w' });
     }
     // Strip test-runner context so nested `node --test` verification runs
-    // behave as standalone processes when Havrin itself runs under node:test.
+    // behave as standalone processes when Caliper itself runs under node:test.
     const env = { ...process.env };
     delete env['NODE_TEST_CONTEXT'];
     const child = spawn(cmd, args, {

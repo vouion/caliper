@@ -26,7 +26,7 @@ const TEMPLATES: Record<string, Template> = {
     apply: [
       'Open your global or project instruction file (AGENTS.md / agent config instructions).',
       'Add a rule: "When a tool call fails, read the error, verify preconditions (paths, file content, dependencies), and change strategy before retrying. Do not repeat an identical failing call."',
-      'Re-run havrin audit after a week of normal work to compare failure counts.',
+      'Re-run caliper audit after a week of normal work to compare failure counts.',
     ],
     rollback: ['Remove the added instruction paragraph; no other state is changed.'],
   },
@@ -92,7 +92,7 @@ const TEMPLATES: Record<string, Template> = {
     apply: [
       'Back up the config file listed in the evidence.',
       'Remove or disable the listed server entries (OpenCode: mcp.servers.<name>.enabled=false or delete the entry; Codex: remove [mcp_servers.<name>]; Claude Code: remove the entry from the project .mcp.json mcpServers).',
-      'Restart the agent and re-run havrin audit after representative usage.',
+      'Restart the agent and re-run caliper audit after representative usage.',
     ],
     rollback: ['Restore the backed-up config file, or re-add the removed server entry.'],
   },
@@ -147,7 +147,7 @@ export function buildRecommendations(findings: Finding[]): Recommendation[] {
       evidence,
       tested: false,
       testedNote:
-        'Not experimentally verified. Based on deterministic observation of your sessions/environment; Havrin v0.1 does not run experiments.',
+        'Not experimentally verified. Based on deterministic observation of your sessions/environment; Caliper v0.1 does not run experiments.',
       benefits: template.benefits,
       tradeoffs: template.tradeoffs,
       apply: template.apply,

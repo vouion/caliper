@@ -1,6 +1,6 @@
 /**
  * Mock execution backend: deterministic, zero-cost, zero-risk.
- * Used by all automated tests and `havrin experiment demo`.
+ * Used by all automated tests and `caliper experiment demo`.
  * Simulates edits, outcomes, timing, and content-free session metrics.
  */
 import path from 'node:path';

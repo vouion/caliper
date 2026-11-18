@@ -52,5 +52,5 @@ test('terminal renderer: zero-coverage report explains and suggests demo', () =>
   report.findings = report.findings.filter((f) => f.scope === 'environment');
   const out = renderTerminal(report, { color: false, width: 80 });
   assert.ok(out.includes('No session data was analyzed'));
-  assert.ok(out.includes('havrin demo'));
+  assert.ok(out.includes('caliper demo'));
 });

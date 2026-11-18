@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall, TokenUsage } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
-import { HavrinError, errorMessage } from '../core/errors.ts';
+import { CaliperError, errorMessage } from '../core/errors.ts';
 import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand, commandFromInput } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
@@ -31,7 +31,7 @@ const HEAD_BYTES = 64 * 1024;
 const ROLLOUT_RE = /^rollout-.*\.jsonl$/;
 
 export function codexHome(): string {
-  const override = process.env['HAVRIN_CODEX_HOME'];
+  const override = process.env['CALIPER_CODEX_HOME'];
   if (override && path.isAbsolute(override)) return override;
   const env = process.env['CODEX_HOME'];
   if (env && path.isAbsolute(env)) return env;
@@ -248,10 +248,10 @@ export class CodexAdapter implements AgentAdapter {
 
   readSession(installation: AgentInstallation, meta: SessionMeta): SessionRecord {
     if (installation.layout !== 'jsonl-rollout') {
-      throw new HavrinError('UNSUPPORTED', `Codex layout ${installation.layout ?? 'unknown'} is not supported`);
+      throw new CaliperError('UNSUPPORTED', `Codex layout ${installation.layout ?? 'unknown'} is not supported`);
     }
     const file = rolloutPathById.get(meta.id) ?? this.findRollout(meta.id);
-    if (!file) throw new HavrinError('NO_DATA', `Rollout file for session ${meta.id} not found`);
+    if (!file) throw new CaliperError('NO_DATA', `Rollout file for session ${meta.id} not found`);
 
     const warnings: string[] = [];
     let partial = false;
@@ -264,7 +264,7 @@ export class CodexAdapter implements AgentAdapter {
     try {
       stat = fs.statSync(file);
     } catch (err) {
-      throw new HavrinError('IO', `Cannot stat ${file}: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Cannot stat ${file}: ${errorMessage(err)}`);
     }
     if (stat.size > MAX_ROLLOUT_BYTES) {
       warn(`rollout exceeds ${MAX_ROLLOUT_BYTES} bytes; skipped for safety`);
@@ -274,7 +274,7 @@ export class CodexAdapter implements AgentAdapter {
     try {
       raw = fs.readFileSync(file, 'utf8');
     } catch (err) {
-      throw new HavrinError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
     }
 
     const events: SessionEvent[] = [];

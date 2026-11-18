@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * havrin CLI — doctor / audit / report / demo.
+ * caliper CLI — doctor / audit / report / demo.
  * Exit codes: 0 success · 1 runtime failure (or doctor found failures) · 2 usage error.
  */
 import { parseArgs } from 'node:util';
 import type { AgentId } from './core/types.ts';
-import { HavrinError, errorMessage } from './core/errors.ts';
+import { CaliperError, errorMessage } from './core/errors.ts';
 import { parseDuration } from './core/util.ts';
 import { readJsonFile } from './core/fs.ts';
 import { runAudit, DEFAULT_SINCE_MS, DEFAULT_LIMIT } from './audit.ts';
@@ -18,12 +18,12 @@ import { listExperiments, loadExperiment } from './experiment/store.ts';
 import { compareExperiment } from './experiment/compare.ts';
 import { renderExperimentTerminal } from './experiment/report.ts';
 import { runExperimentDemo } from './experiment/demo.ts';
-import { HAVRIN_VERSION } from './version.ts';
+import { CALIPER_VERSION } from './version.ts';
 
-const HELP = `havrin v${HAVRIN_VERSION} — local-first optimization engine for AI-powered development
+const HELP = `caliper v${CALIPER_VERSION} — local-first optimization engine for AI-powered development
 
 USAGE
-  havrin <command> [options]
+  caliper <command> [options]
 
 COMMANDS
   doctor              Check runtime, agent installs, and session storage health
@@ -35,16 +35,16 @@ COMMANDS
   version             Print version
 
 EXPERIMENT SUBCOMMANDS
-  havrin experiment list                     List registered experiments
-  havrin experiment create --benchmark <ref> --baseline <config.json>
+  caliper experiment list                     List registered experiments
+  caliper experiment create --benchmark <ref> --baseline <config.json>
       --candidate <config.json> [--trials N] [--seed N] [--recommendation <id>]
       ref: builtin:fix-failing-test or a benchmark JSON file path
-  havrin experiment run <id> [--approve-inference] [--allow-unverified]
+  caliper experiment run <id> [--approve-inference] [--allow-unverified]
       [--dry-run] [--keep-workspaces] [--timeout <ms>]
       Real agents perform PAID inference; --approve-inference is required.
-  havrin experiment report <id> [--format json|terminal]
-  havrin experiment inspect <id>             Full experiment record (JSON)
-  havrin experiment demo                     Free mock experiment, end-to-end
+  caliper experiment report <id> [--format json|terminal]
+  caliper experiment inspect <id>             Full experiment record (JSON)
+  caliper experiment demo                     Free mock experiment, end-to-end
 
 AUDIT OPTIONS
   --agent <id>        Restrict to an agent: opencode | codex | claude (repeatable)
@@ -65,14 +65,14 @@ GLOBAL OPTIONS
 PRIVACY
   All analysis is local. Session content and credentials are never transmitted.
   Agent data is opened read-only. Reports contain metrics and evidence pointers,
-  not message text. State lives in ~/.local/share/havrin (override: HAVRIN_HOME).
+  not message text. State lives in ~/.local/share/caliper (override: CALIPER_HOME).
 
 EXAMPLES
-  havrin doctor
-  havrin audit --since 7d
-  havrin audit --agent opencode --json > audit.json
-  havrin report --format json
-  havrin demo
+  caliper doctor
+  caliper audit --since 7d
+  caliper audit --agent opencode --json > audit.json
+  caliper report --format json
+  caliper demo
 `;
 
 interface Parsed {
@@ -113,7 +113,7 @@ function parse(argv: string[]): Parsed {
     });
     return { values, positionals };
   } catch (err) {
-    throw new HavrinError('USAGE', errorMessage(err), 'Run havrin help for usage.');
+    throw new CaliperError('USAGE', errorMessage(err), 'Run caliper help for usage.');
   }
 }
 
@@ -121,7 +121,7 @@ function wantString(values: Record<string, unknown>, key: string): string | unde
   const v = values[key];
   if (v === undefined) return undefined;
   if (typeof v !== 'string' || v.length === 0) {
-    throw new HavrinError('USAGE', `--${key} requires a non-empty value`);
+    throw new CaliperError('USAGE', `--${key} requires a non-empty value`);
   }
   return v;
 }
@@ -131,7 +131,7 @@ function main(argv: string[]): number | Promise<number> {
   const color = !values['no-color'] && shouldUseColor(process.stdout.isTTY);
 
   if (values['version']) {
-    process.stdout.write(HAVRIN_VERSION + '\n');
+    process.stdout.write(CALIPER_VERSION + '\n');
     return 0;
   }
   const command = positionals[0];
@@ -141,19 +141,19 @@ function main(argv: string[]): number | Promise<number> {
   }
   const maxPositionals = command === 'experiment' ? 3 : 1;
   if (positionals.length > maxPositionals) {
-    throw new HavrinError('USAGE', `Unexpected argument: ${positionals[maxPositionals]}`, 'Run havrin help for usage.');
+    throw new CaliperError('USAGE', `Unexpected argument: ${positionals[maxPositionals]}`, 'Run caliper help for usage.');
   }
 
   switch (command) {
     case 'version':
-      process.stdout.write(HAVRIN_VERSION + '\n');
+      process.stdout.write(CALIPER_VERSION + '\n');
       return 0;
 
     case 'doctor': {
       const project = wantString(values, 'project');
       const result = runDoctor(project);
       const icon = { ok: color ? '\u001b[32m✓\u001b[0m' : '✓', warn: color ? '\u001b[33m▲\u001b[0m' : '▲', fail: color ? '\u001b[31m✗\u001b[0m' : '✗' };
-      process.stdout.write(`havrin doctor — v${HAVRIN_VERSION}\n\n`);
+      process.stdout.write(`caliper doctor — v${CALIPER_VERSION}\n\n`);
       for (const check of result.checks) {
         process.stdout.write(`  ${icon[check.status]} ${check.name}\n`);
         process.stdout.write(`      ${check.detail}\n`);
@@ -170,7 +170,7 @@ function main(argv: string[]): number | Promise<number> {
       if (Array.isArray(agentsRaw) && agentsRaw.length > 0) {
         agents = agentsRaw.map((a) => {
           if (a !== 'opencode' && a !== 'codex' && a !== 'claude') {
-            throw new HavrinError('USAGE', `Unknown agent: ${String(a)}`, 'Supported agents: opencode, codex, claude');
+            throw new CaliperError('USAGE', `Unknown agent: ${String(a)}`, 'Supported agents: opencode, codex, claude');
           }
           return a;
         });
@@ -178,14 +178,14 @@ function main(argv: string[]): number | Promise<number> {
       let sinceMs = DEFAULT_SINCE_MS;
       const since = wantString(values, 'since');
       if (values['all'] && since) {
-        throw new HavrinError('USAGE', '--all and --since are mutually exclusive', 'Use --all for full history, or --since <duration> for a window.');
+        throw new CaliperError('USAGE', '--all and --since are mutually exclusive', 'Use --all for full history, or --since <duration> for a window.');
       }
       if (values['all']) {
         sinceMs = Date.now(); // window.since ≈ 0
       } else if (since) {
         const ms = parseDuration(since);
         if (ms === undefined || ms <= 0) {
-          throw new HavrinError('USAGE', `Invalid --since value: ${since}`, 'Use a duration like 12h, 7d, 30d.');
+          throw new CaliperError('USAGE', `Invalid --since value: ${since}`, 'Use a duration like 12h, 7d, 30d.');
         }
         sinceMs = ms;
       }
@@ -194,7 +194,7 @@ function main(argv: string[]): number | Promise<number> {
       if (limitRaw !== undefined) {
         limit = Number(limitRaw);
         if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
-          throw new HavrinError('USAGE', `Invalid --limit value: ${limitRaw}`, 'Use an integer between 1 and 1000.');
+          throw new CaliperError('USAGE', `Invalid --limit value: ${limitRaw}`, 'Use an integer between 1 and 1000.');
         }
       }
       const project = wantString(values, 'project');
@@ -223,11 +223,11 @@ function main(argv: string[]): number | Promise<number> {
       const formatRaw = wantString(values, 'format') ?? (values['json'] ? 'json' : 'terminal');
       const format = formatRaw;
       if (format !== 'json' && format !== 'terminal') {
-        throw new HavrinError('USAGE', `Unknown format: ${format}`, 'Supported formats: json, terminal');
+        throw new CaliperError('USAGE', `Unknown format: ${format}`, 'Supported formats: json, terminal');
       }
       const report = loadLastAudit();
       if (!report) {
-        throw new HavrinError('NO_AUDIT', 'No saved audit found.', 'Run havrin audit first (or havrin demo for synthetic data).');
+        throw new CaliperError('NO_AUDIT', 'No saved audit found.', 'Run caliper audit first (or caliper demo for synthetic data).');
       }
       if (format === 'json') {
         process.stdout.write(JSON.stringify(report, null, 2) + '\n');
@@ -251,7 +251,7 @@ function main(argv: string[]): number | Promise<number> {
       return experimentCommand(positionals, values, color);
 
     default:
-      throw new HavrinError('USAGE', `Unknown command: ${command}`, 'Run havrin help for usage.');
+      throw new CaliperError('USAGE', `Unknown command: ${command}`, 'Run caliper help for usage.');
   }
 }
 
@@ -263,7 +263,7 @@ async function experimentCommand(
   const sub = positionals[1];
   const wantId = (): string => {
     const id = positionals[2];
-    if (!id) throw new HavrinError('USAGE', 'experiment requires an id', 'Run havrin experiment list to see ids.');
+    if (!id) throw new CaliperError('USAGE', 'experiment requires an id', 'Run caliper experiment list to see ids.');
     return id;
   };
   const asJson = values['json'] === true || values['format'] === 'json';
@@ -277,7 +277,7 @@ async function experimentCommand(
     case 'list': {
       const entries = listExperiments();
       if (entries.length === 0) {
-        process.stdout.write('No experiments yet. Create one with havrin experiment create, or try havrin experiment demo.\n');
+        process.stdout.write('No experiments yet. Create one with caliper experiment create, or try caliper experiment demo.\n');
         return 0;
       }
       process.stdout.write('EXPERIMENTS\n');
@@ -292,21 +292,21 @@ async function experimentCommand(
       const baselineFile = wantString(values, 'baseline');
       const candidateFiles = values['candidate'];
       if (!benchmarkRef || !baselineFile || !Array.isArray(candidateFiles) || candidateFiles.length === 0) {
-        throw new HavrinError('USAGE', 'create requires --benchmark, --baseline, and at least one --candidate', 'See havrin help for the experiment syntax.');
+        throw new CaliperError('USAGE', 'create requires --benchmark, --baseline, and at least one --candidate', 'See caliper help for the experiment syntax.');
       }
       let trials: number | undefined;
       const trialsRaw = wantString(values, 'trials');
       if (trialsRaw !== undefined) {
         trials = Number(trialsRaw);
         if (!Number.isInteger(trials) || trials < 1 || trials > 20) {
-          throw new HavrinError('USAGE', `Invalid --trials: ${trialsRaw}`, 'Use an integer between 1 and 20.');
+          throw new CaliperError('USAGE', `Invalid --trials: ${trialsRaw}`, 'Use an integer between 1 and 20.');
         }
       }
       let seed: number | undefined;
       const seedRaw = wantString(values, 'seed');
       if (seedRaw !== undefined) {
         seed = Number(seedRaw);
-        if (!Number.isInteger(seed) || seed < 0) throw new HavrinError('USAGE', `Invalid --seed: ${seedRaw}`);
+        if (!Number.isInteger(seed) || seed < 0) throw new CaliperError('USAGE', `Invalid --seed: ${seedRaw}`);
       }
       const recommendationIds = Array.isArray(values['recommendation']) ? (values['recommendation'] as string[]) : [];
       const record = createExperiment({
@@ -321,7 +321,7 @@ async function experimentCommand(
       process.stdout.write(`  benchmark: ${record.benchmark.id} (${record.benchmarkFingerprint.slice(0, 24)}…)\n`);
       process.stdout.write(`  configs: ${record.configs.map((c) => `${c.id}=${c.agent}`).join(', ')} · trials/config: ${record.trialsPerConfig}\n`);
       const needsApproval = record.configs.some((c) => c.agent !== 'mock');
-      process.stdout.write(`  next: havrin experiment run ${record.id}${needsApproval ? ' --approve-inference' : ''}\n`);
+      process.stdout.write(`  next: caliper experiment run ${record.id}${needsApproval ? ' --approve-inference' : ''}\n`);
       return 0;
     }
 
@@ -332,7 +332,7 @@ async function experimentCommand(
       if (timeoutRaw !== undefined) {
         timeoutMs = Number(timeoutRaw);
         if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3_600_000) {
-          throw new HavrinError('USAGE', `Invalid --timeout: ${timeoutRaw}`, 'Milliseconds between 1000 and 3600000.');
+          throw new CaliperError('USAGE', `Invalid --timeout: ${timeoutRaw}`, 'Milliseconds between 1000 and 3600000.');
         }
       }
       const outcome = await runExperiment(id, {
@@ -389,20 +389,20 @@ async function experimentCommand(
     }
 
     default:
-      throw new HavrinError('USAGE', `Unknown experiment subcommand: ${sub}`, 'Use list, create, run, report, inspect, or demo.');
+      throw new CaliperError('USAGE', `Unknown experiment subcommand: ${sub}`, 'Use list, create, run, report, inspect, or demo.');
   }
 }
 
 try {
   process.exitCode = await main(process.argv.slice(2));
 } catch (err) {
-  if (err instanceof HavrinError) {
+  if (err instanceof CaliperError) {
     process.stderr.write(`error[${err.code}]: ${err.message}\n`);
     if (err.hint) process.stderr.write(`hint: ${err.hint}\n`);
     process.exitCode = err.code === 'USAGE' ? 2 : 1;
   } else {
     process.stderr.write(`error[INTERNAL]: ${errorMessage(err)}\n`);
-    if (process.env['HAVRIN_DEBUG']) process.stderr.write(String(err instanceof Error ? err.stack : err) + '\n');
+    if (process.env['CALIPER_DEBUG']) process.stderr.write(String(err instanceof Error ? err.stack : err) + '\n');
     process.exitCode = 1;
   }
 }

@@ -37,7 +37,7 @@ export interface BenchmarkSpec {
   source: BenchmarkSource;
   /** The task given to the agent. User-authored; stored for reproducibility. */
   taskPrompt: string;
-  /** Deterministic checks run by Havrin AFTER the agent finishes. */
+  /** Deterministic checks run by Caliper AFTER the agent finishes. */
   acceptance: AcceptanceCheck[];
   limits: {
     /** Per-trial agent execution timeout. */
@@ -126,7 +126,7 @@ export interface TrialResult {
     userTurns: number;
     assistantTurns: number;
   };
-  /** Havrin-run verification (deterministic; not agent-reported). */
+  /** Caliper-run verification (deterministic; not agent-reported). */
   verification?: {
     /** All acceptance checks passed. */
     success: boolean;
@@ -161,7 +161,7 @@ export interface ExperimentRecord {
   trials: TrialResult[];
   /** Environment metadata for reproducibility. */
   environment: {
-    havrinVersion: string;
+    caliperVersion: string;
     platform: string;
     nodeVersion: string;
     agentVersions: Record<string, string | null>;

@@ -22,11 +22,11 @@ import { tempDir, cleanup, withEnv, withEnvAsync } from './helpers.ts';
 function envFor(dir: string): Record<string, string | undefined> {
   const home = path.join(dir, 'home');
   return {
-    HAVRIN_HOME: path.join(dir, 'state'),
-    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
-    HAVRIN_CODEX_HOME: path.join(dir, 'no-cx'),
-    HAVRIN_CLAUDE_HOME: path.join(dir, 'no-claude'),
+    CALIPER_HOME: path.join(dir, 'state'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
+    CALIPER_CODEX_HOME: path.join(dir, 'no-cx'),
+    CALIPER_CLAUDE_HOME: path.join(dir, 'no-claude'),
     CODEX_HOME: undefined,
     CLAUDE_CONFIG_DIR: undefined,
     HOME: home,
@@ -412,7 +412,7 @@ function recordWith(trials: TrialResult[], trialsPerConfig: number): ExperimentR
     orderSeed: 1,
     recommendationIds: [],
     trials,
-    environment: { havrinVersion: 'test', platform: 'test', nodeVersion: 'test', agentVersions: {} },
+    environment: { caliperVersion: 'test', platform: 'test', nodeVersion: 'test', agentVersions: {} },
   };
   cleanup(dir);
   return rec;

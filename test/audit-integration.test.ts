@@ -55,11 +55,11 @@ function setup() {
 
 function envFor(s: ReturnType<typeof setup>, stateDir: string): Record<string, string | undefined> {
   return {
-    HAVRIN_HOME: stateDir,
-    HAVRIN_OPENCODE_DATA_DIR: s.dataDir,
-    HAVRIN_OPENCODE_CONFIG_DIR: s.ocConfig,
-    HAVRIN_CODEX_HOME: path.join(s.dir, 'no-codex'),
-    HAVRIN_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
+    CALIPER_HOME: stateDir,
+    CALIPER_OPENCODE_DATA_DIR: s.dataDir,
+    CALIPER_OPENCODE_CONFIG_DIR: s.ocConfig,
+    CALIPER_CODEX_HOME: path.join(s.dir, 'no-codex'),
+    CALIPER_CLAUDE_HOME: path.join(s.dir, 'no-claude'),
     CODEX_HOME: undefined,
     CLAUDE_CONFIG_DIR: undefined,
     HOME: s.home,
@@ -164,11 +164,11 @@ test('audit: empty environment produces clear zero coverage, no crash', () => {
   const dir = tempDir();
   withEnv(
     {
-      HAVRIN_HOME: path.join(dir, 'state'),
-      HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'missing-oc'),
-      HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'missing-cfg'),
-      HAVRIN_CODEX_HOME: path.join(dir, 'missing-cx'),
-      HAVRIN_CLAUDE_HOME: path.join(dir, 'missing-claude'),
+      CALIPER_HOME: path.join(dir, 'state'),
+      CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'missing-oc'),
+      CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'missing-cfg'),
+      CALIPER_CODEX_HOME: path.join(dir, 'missing-cx'),
+      CALIPER_CLAUDE_HOME: path.join(dir, 'missing-claude'),
       CODEX_HOME: undefined,
       CLAUDE_CONFIG_DIR: undefined,
       HOME: path.join(dir, 'missing-home'),
@@ -213,12 +213,12 @@ test('audit: claude incremental cache hits, invalidates on change, preserves att
     ccToolResult({ toolUseId: 't2', isError: true }),
   ]);
   const env: Record<string, string | undefined> = {
-    HAVRIN_HOME: state,
-    HAVRIN_CLAUDE_HOME: claudeHome,
+    CALIPER_HOME: state,
+    CALIPER_CLAUDE_HOME: claudeHome,
     CLAUDE_CONFIG_DIR: undefined,
-    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
-    HAVRIN_CODEX_HOME: path.join(dir, 'no-cx'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'no-oc'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'no-oc-cfg'),
+    CALIPER_CODEX_HOME: path.join(dir, 'no-cx'),
     CODEX_HOME: undefined,
     HOME: home,
     USERPROFILE: home,
@@ -256,7 +256,7 @@ test('audit: multi-agent analysis preserves provider attribution', () => {
   ]);
   const env = {
     ...envFor(s, path.join(s.dir, 'state')),
-    HAVRIN_CLAUDE_HOME: claudeHome,
+    CALIPER_CLAUDE_HOME: claudeHome,
     CLAUDE_CONFIG_DIR: undefined,
   };
   withEnv(env, () => {

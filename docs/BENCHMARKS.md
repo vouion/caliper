@@ -1,4 +1,4 @@
-# Havrin Benchmarks — Methodology & Results
+# Caliper Benchmarks — Methodology & Results
 
 All numbers below were measured on the maintainer's machine, not fabricated. Conditions are stated so results can be reproduced or contested.
 
@@ -6,11 +6,11 @@ All numbers below were measured on the maintainer's machine, not fabricated. Con
 
 - Linux x64, Node.js v26.13.0, ext4/tmpfs filesystems
 - OpenCode v2.3.1 (258 sessions), Codex CLI 0.169.1 (25 rollouts), Claude Code 2.1.327 (5,422 transcripts, 1.81 GB)
-- Havrin invoked via `node --experimental-strip-types src/cli.ts` or built `dist/cli.js`; measurements via `performance.now()` around `runAudit`/`runExperimentRecord` in-process (CLI startup excluded), RSS via `process.memoryUsage()`
+- Caliper invoked via `node --experimental-strip-types src/cli.ts` or built `dist/cli.js`; measurements via `performance.now()` around `runAudit`/`runExperimentRecord` in-process (CLI startup excluded), RSS via `process.memoryUsage()`
 
 ## Session ingestion (Claude Code collection)
 
-Command equivalent: `havrin audit --agent claude --all --limit 1000` with a fresh `HAVRIN_HOME`.
+Command equivalent: `caliper audit --agent claude --all --limit 1000` with a fresh `CALIPER_HOME`.
 
 | Metric | Value |
 |---|---|
@@ -30,7 +30,7 @@ Notes:
 
 ## Experiment engine (mock verification)
 
-`havrin experiment demo` — 2 mock configs × 3 trials, built-in `fix-failing-test` benchmark, real `node --test` verification in isolated workspaces:
+`caliper experiment demo` — 2 mock configs × 3 trials, built-in `fix-failing-test` benchmark, real `node --test` verification in isolated workspaces:
 
 - Baseline (no fix): execution completed 3/3, task success 0/3, test failures 3 (parsed from node:test spec output)
 - Candidate (applies fix): execution completed 3/3, task success 3/3, test failures 0
@@ -40,11 +40,11 @@ Notes:
 
 ## Live OpenCode experiment (measured 2026-11-18, founder-approved)
 
-Registry record: `exp-20261118034401-gywh7f` (source of truth; `havrin experiment report exp-20261118034401-gywh7f`).
+Registry record: `exp-20261118034401-gywh7f` (source of truth; `caliper experiment report exp-20261118034401-gywh7f`).
 
 Setup: built-in `fix-failing-test` benchmark; baseline = OpenCode + `alibaba-token-plan/qwen4-max` (default agent `qwen-rigorous`); candidate = same model + verify-first instruction variant; 3 trials/config, seed 42, 5-minute per-trial timeout. Only one model is configured on this machine, so the live comparison exercises the instruction-variant path; the execution pipeline (spawn → session creation → metrics ingestion → verification → verdict) is identical for model comparisons.
 
-**Phase 1 — first run (6 trials):** 5 trials completed (~30–39 s each, real inference); 1 baseline trial failed at 3.4 s with a provider-side quota error (`provider.quota`, confirmed via the session's error events — not a Havrin defect). The engine recorded the failure honestly: trial status `error`, verification still ran (tests-pass failed, anti-cheat hash passed), and the verdict counted it as an unsuccessful attempt. Result: baseline 2/3 vs candidate 3/3 → **candidate wins on correctness, confidence preliminary**. This phase demonstrates correctness-dominance and honest failure accounting on real runs.
+**Phase 1 — first run (6 trials):** 5 trials completed (~30–39 s each, real inference); 1 baseline trial failed at 3.4 s with a provider-side quota error (`provider.quota`, confirmed via the session's error events — not a Caliper defect). The engine recorded the failure honestly: trial status `error`, verification still ran (tests-pass failed, anti-cheat hash passed), and the verdict counted it as an unsuccessful attempt. Result: baseline 2/3 vs candidate 3/3 → **candidate wins on correctness, confidence preliminary**. This phase demonstrates correctness-dominance and honest failure accounting on real runs.
 
 **Phase 2 — resume (failed trial re-attempted after quota recovery):** completed-trial duplicate protection kept the 5 finished trials untouched; only `baseline-t1` re-ran (34.5 s, success). Final measured results:
 
@@ -68,10 +68,10 @@ Reproducibility notes: session metrics were ingested through the standard OpenCo
 
 ```sh
 npm install && npm run build
-havrin audit --agent claude --all --limit 1000 --json   # ingestion scale
-havrin experiment demo --json                          # engine pipeline
+caliper audit --agent claude --all --limit 1000 --json   # ingestion scale
+caliper experiment demo --json                          # engine pipeline
 # live (requires your own agent install + explicit approval):
-havrin experiment create --benchmark builtin:fix-failing-test \
+caliper experiment create --benchmark builtin:fix-failing-test \
   --baseline baseline.json --candidate candidate.json --trials 3
-havrin experiment run <id> --approve-inference
+caliper experiment run <id> --approve-inference
 ```

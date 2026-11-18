@@ -418,7 +418,7 @@ const unusedMcpServers: Rule = {
         consequence:
           'Unused MCP servers still inject tool definitions into every prompt (context cost) and expand the attack surface of the agent without providing value.',
         suggestion:
-          'Disable or remove the unused server(s) from the config, or start using them. Re-run havrin audit after a representative work period to confirm.',
+          'Disable or remove the unused server(s) from the config, or start using them. Re-run caliper audit after a representative work period to confirm.',
       });
     }
     return cap(findings);
@@ -482,7 +482,7 @@ const plaintextConfigSecrets: Rule = {
         confidence: 'high',
         scope: 'environment',
         evidence: environment.secretExposures.slice(0, 8).map((e) => ({
-          description: `Key "${e.keyPath}" in ${e.configPath} holds a literal value (value not inspected or stored by Havrin)`,
+          description: `Key "${e.keyPath}" in ${e.configPath} holds a literal value (value not inspected or stored by Caliper)`,
         })),
         consequence:
           'Plaintext credentials in config files leak through backups, dotfile repos, screen shares, and any tool that reads the config. Environment-variable references avoid this.',

@@ -120,9 +120,9 @@ export function builtinBenchmark(templateDir: string): BenchmarkSpec {
   };
 }
 
-/** Resolve the built-in template directory under Havrin state (created on demand). */
-export function builtinTemplateDir(havrinHomeDir: string): string {
-  const dir = path.join(havrinHomeDir, 'benchmarks', BUILTIN_BENCHMARK_ID, 'template');
+/** Resolve the built-in template directory under Caliper state (created on demand). */
+export function builtinTemplateDir(caliperHomeDir: string): string {
+  const dir = path.join(caliperHomeDir, 'benchmarks', BUILTIN_BENCHMARK_ID, 'template');
   if (!fs.existsSync(path.join(dir, 'test', 'price.test.js'))) {
     materializeBuiltinTemplate(dir);
   }

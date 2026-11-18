@@ -11,7 +11,7 @@ import { emptyTokens, addTokens } from '../core/types.ts';
 import { sessionTokens, sessionCost, countEvents, toolStats } from '../core/session.ts';
 import { runDiagnostics } from '../diagnostics/rules.ts';
 import { buildRecommendations } from '../optimize/recommend.ts';
-import { HAVRIN_VERSION } from '../version.ts';
+import { CALIPER_VERSION } from '../version.ts';
 
 export function assembleReport(args: {
   mode: 'real' | 'demo';
@@ -69,7 +69,7 @@ export function assembleReport(args: {
 
   return {
     schemaVersion: '1',
-    havrinVersion: HAVRIN_VERSION,
+    caliperVersion: CALIPER_VERSION,
     generatedAt: args.generatedAt,
     mode: args.mode,
     window: args.window,

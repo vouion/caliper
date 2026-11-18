@@ -1,13 +1,13 @@
 /** Validation for experiment definitions (untrusted user input). */
 import type { BenchmarkSpec, ExperimentConfig, AcceptanceCheck, MockBehavior } from './types.ts';
 import { isObj, isStr, isNum, isArr } from '../core/validate.ts';
-import { HavrinError } from '../core/errors.ts';
+import { CaliperError } from '../core/errors.ts';
 
 const AGENTS = new Set(['opencode', 'codex', 'claude', 'mock']);
 const CHECK_KINDS = new Set(['test-command', 'file-exists', 'file-hash', 'command-succeeds']);
 
 function fail(msg: string): never {
-  throw new HavrinError('USAGE', `Invalid experiment definition: ${msg}`);
+  throw new CaliperError('USAGE', `Invalid experiment definition: ${msg}`);
 }
 
 function validCheck(v: unknown): v is AcceptanceCheck {

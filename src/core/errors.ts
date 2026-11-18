@@ -1,6 +1,6 @@
 /** Structured error types. CLI maps codes to exit statuses and clear messages. */
 
-export type HavrinErrorCode =
+export type CaliperErrorCode =
   | 'USAGE'
   | 'NO_AUDIT'
   | 'NO_DATA'
@@ -9,13 +9,13 @@ export type HavrinErrorCode =
   | 'UNSUPPORTED'
   | 'INTERNAL';
 
-export class HavrinError extends Error {
-  readonly code: HavrinErrorCode;
+export class CaliperError extends Error {
+  readonly code: CaliperErrorCode;
   readonly hint: string | undefined;
 
-  constructor(code: HavrinErrorCode, message: string, hint?: string) {
+  constructor(code: CaliperErrorCode, message: string, hint?: string) {
     super(message);
-    this.name = 'HavrinError';
+    this.name = 'CaliperError';
     this.code = code;
     this.hint = hint;
   }

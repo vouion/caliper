@@ -48,11 +48,11 @@ function fixtureEnv(): { env: Record<string, string>; dir: string } {
   }
   db.close();
   const env: Record<string, string> = {
-    HAVRIN_HOME: path.join(dir, 'state'),
-    HAVRIN_OPENCODE_DATA_DIR: dataDir,
-    HAVRIN_OPENCODE_CONFIG_DIR: ocConfig,
-    HAVRIN_CODEX_HOME: path.join(dir, 'no-codex'),
-    HAVRIN_CLAUDE_HOME: path.join(dir, 'no-claude'),
+    CALIPER_HOME: path.join(dir, 'state'),
+    CALIPER_OPENCODE_DATA_DIR: dataDir,
+    CALIPER_OPENCODE_CONFIG_DIR: ocConfig,
+    CALIPER_CODEX_HOME: path.join(dir, 'no-codex'),
+    CALIPER_CLAUDE_HOME: path.join(dir, 'no-claude'),
     CLAUDE_CONFIG_DIR: '',
     HOME: home,
     USERPROFILE: home,
@@ -112,7 +112,7 @@ test('cli: --all and --since conflict exits 2', () => {
 
 test('cli: report without prior audit exits 1 with NO_AUDIT', () => {
   const dir = tempDir();
-  const r = runCli(['report', '--format', 'json'], { HAVRIN_HOME: path.join(dir, 'empty'), NO_COLOR: '1' });
+  const r = runCli(['report', '--format', 'json'], { CALIPER_HOME: path.join(dir, 'empty'), NO_COLOR: '1' });
   assert.equal(r.status, 1);
   assert.ok(r.stderr.includes('error[NO_AUDIT]'));
   cleanup(dir);
@@ -165,7 +165,7 @@ test('cli: audit terminal report renders without color under NO_COLOR', () => {
   const { env, dir } = fixtureEnv();
   const r = runCli(['audit'], env);
   assert.equal(r.status, 0);
-  assert.ok(r.stdout.includes('havrin v'));
+  assert.ok(r.stdout.includes('caliper v'));
   assert.ok(!r.stdout.includes('\u001b['));
   cleanup(dir);
 });
@@ -193,11 +193,11 @@ test('cli: doctor passes with fixture data and fails nothing critical', () => {
 test('cli: audit with no data communicates clearly and exits 0', () => {
   const dir = tempDir();
   const r = runCli(['audit'], {
-    HAVRIN_HOME: path.join(dir, 'state'),
-    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'none'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
-    HAVRIN_CODEX_HOME: path.join(dir, 'none'),
-    HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+    CALIPER_HOME: path.join(dir, 'state'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'none'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
+    CALIPER_CODEX_HOME: path.join(dir, 'none'),
+    CALIPER_CLAUDE_HOME: path.join(dir, 'none'),
     CLAUDE_CONFIG_DIR: '',
     HOME: path.join(dir, 'none-home'),
     USERPROFILE: path.join(dir, 'none-home'),
@@ -206,7 +206,7 @@ test('cli: audit with no data communicates clearly and exits 0', () => {
   });
   assert.equal(r.status, 0);
   assert.ok(r.stdout.includes('No session data was analyzed'));
-  assert.ok(r.stdout.includes('havrin demo'));
+  assert.ok(r.stdout.includes('caliper demo'));
   cleanup(dir);
 });
 
@@ -217,11 +217,11 @@ test('cli: audit with no data communicates clearly and exits 0', () => {
 function expEnv(dir: string): Record<string, string> {
   const home = path.join(dir, 'home');
   return {
-    HAVRIN_HOME: path.join(dir, 'state'),
-    HAVRIN_OPENCODE_DATA_DIR: path.join(dir, 'none'),
-    HAVRIN_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
-    HAVRIN_CODEX_HOME: path.join(dir, 'none'),
-    HAVRIN_CLAUDE_HOME: path.join(dir, 'none'),
+    CALIPER_HOME: path.join(dir, 'state'),
+    CALIPER_OPENCODE_DATA_DIR: path.join(dir, 'none'),
+    CALIPER_OPENCODE_CONFIG_DIR: path.join(dir, 'none'),
+    CALIPER_CODEX_HOME: path.join(dir, 'none'),
+    CALIPER_CLAUDE_HOME: path.join(dir, 'none'),
     CLAUDE_CONFIG_DIR: '',
     HOME: home,
     USERPROFILE: home,

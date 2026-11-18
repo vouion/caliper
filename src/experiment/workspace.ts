@@ -10,7 +10,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import type { BenchmarkSpec } from './types.ts';
-import { HavrinError, errorMessage } from '../core/errors.ts';
+import { CaliperError, errorMessage } from '../core/errors.ts';
 import { sha256 } from '../core/util.ts';
 import { isDirectory } from '../core/fs.ts';
 import { validateBenchmark } from './validate.ts';
@@ -20,25 +20,25 @@ const MAX_TEMPLATE_FILES = 5000;
 const MAX_TEMPLATE_BYTES = 64 * 1024 * 1024;
 
 /** Load a benchmark from a JSON file, or resolve the built-in by id. */
-export function loadBenchmark(ref: string, havrinHomeDir: string): BenchmarkSpec {
+export function loadBenchmark(ref: string, caliperHomeDir: string): BenchmarkSpec {
   if (ref === `builtin:${BUILTIN_BENCHMARK_ID}` || ref === BUILTIN_BENCHMARK_ID) {
-    const templateDir = builtinTemplateDir(havrinHomeDir);
+    const templateDir = builtinTemplateDir(caliperHomeDir);
     return builtinBenchmark(templateDir);
   }
   if (ref.startsWith('builtin:')) {
-    throw new HavrinError('USAGE', `Unknown built-in benchmark: ${ref}`, `Available built-ins: ${BUILTIN_BENCHMARK_ID}`);
+    throw new CaliperError('USAGE', `Unknown built-in benchmark: ${ref}`, `Available built-ins: ${BUILTIN_BENCHMARK_ID}`);
   }
   let raw: string;
   try {
     raw = fs.readFileSync(ref, 'utf8');
   } catch (err) {
-    throw new HavrinError('IO', `Cannot read benchmark file ${ref}: ${errorMessage(err)}`, 'Use a JSON file path or builtin:fix-failing-test.');
+    throw new CaliperError('IO', `Cannot read benchmark file ${ref}: ${errorMessage(err)}`, 'Use a JSON file path or builtin:fix-failing-test.');
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new HavrinError('PARSE', `Benchmark file ${ref} is not valid JSON`);
+    throw new CaliperError('PARSE', `Benchmark file ${ref} is not valid JSON`);
   }
   const spec = validateBenchmark(parsed);
   // Resolve relative source paths against the benchmark file's directory.
@@ -52,11 +52,11 @@ export function loadBenchmark(ref: string, havrinHomeDir: string): BenchmarkSpec
 export function validateSource(spec: BenchmarkSpec): void {
   const src = spec.source.path;
   if (!isDirectory(src)) {
-    throw new HavrinError('NO_DATA', `Benchmark source directory not found: ${src}`);
+    throw new CaliperError('NO_DATA', `Benchmark source directory not found: ${src}`);
   }
   if (spec.source.kind === 'git') {
     if (!isDirectory(path.join(src, '.git'))) {
-      throw new HavrinError('USAGE', `Git benchmark source is not a git repository: ${src}`);
+      throw new CaliperError('USAGE', `Git benchmark source is not a git repository: ${src}`);
     }
     return;
   }
@@ -71,13 +71,13 @@ export function validateSource(spec: BenchmarkSpec): void {
         files++;
         bytes += fs.statSync(full).size;
         if (files > MAX_TEMPLATE_FILES || bytes > MAX_TEMPLATE_BYTES) {
-          throw new HavrinError('USAGE', `Benchmark template exceeds limits (${MAX_TEMPLATE_FILES} files / ${MAX_TEMPLATE_BYTES} bytes)`);
+          throw new CaliperError('USAGE', `Benchmark template exceeds limits (${MAX_TEMPLATE_FILES} files / ${MAX_TEMPLATE_BYTES} bytes)`);
         }
       }
     }
   };
   walk(src);
-  if (files === 0) throw new HavrinError('USAGE', `Benchmark template is empty: ${src}`);
+  if (files === 0) throw new CaliperError('USAGE', `Benchmark template is empty: ${src}`);
 }
 
 /**
@@ -95,7 +95,7 @@ export function fingerprintSource(spec: BenchmarkSpec): string {
       }).trim();
       return `git:${head}`;
     } catch (err) {
-      throw new HavrinError('IO', `Cannot read git HEAD of benchmark source: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Cannot read git HEAD of benchmark source: ${errorMessage(err)}`);
     }
   }
   const entries: string[] = [];
@@ -117,7 +117,7 @@ export function fingerprintSource(spec: BenchmarkSpec): string {
 /** Materialize a fresh, isolated trial workspace. Never touches the source. */
 export function materializeWorkspace(spec: BenchmarkSpec, dest: string): void {
   if (fs.existsSync(dest)) {
-    throw new HavrinError('IO', `Workspace already exists (refusing to overwrite): ${dest}`);
+    throw new CaliperError('IO', `Workspace already exists (refusing to overwrite): ${dest}`);
   }
   fs.mkdirSync(dest, { recursive: true });
   if (spec.source.kind === 'git') {
@@ -129,7 +129,7 @@ export function materializeWorkspace(spec: BenchmarkSpec, dest: string): void {
         maxBuffer: 1024 * 1024,
       });
     } catch (err) {
-      throw new HavrinError('IO', `Git clone into workspace failed: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Git clone into workspace failed: ${errorMessage(err)}`);
     }
     return;
   }

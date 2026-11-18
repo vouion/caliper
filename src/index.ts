@@ -12,7 +12,7 @@ export { OpenCodeAdapter } from './adapters/opencode.ts';
 export { CodexAdapter } from './adapters/codex.ts';
 export { ClaudeAdapter } from './adapters/claude.ts';
 export type { AgentAdapter, SessionMeta } from './adapters/adapter.ts';
-export { HAVRIN_VERSION } from './version.ts';
+export { CALIPER_VERSION } from './version.ts';
 export { createExperiment, runExperiment, runExperimentRecord } from './experiment/runner.ts';
 export type { CreateOptions, RunOptions, RunOutcome } from './experiment/runner.ts';
 export { runExperimentDemo } from './experiment/demo.ts';

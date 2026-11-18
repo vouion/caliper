@@ -34,7 +34,7 @@ import type {
   TokenUsage,
 } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
-import { HavrinError, errorMessage } from '../core/errors.ts';
+import { CaliperError, errorMessage } from '../core/errors.ts';
 import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand } from '../core/classify.ts';
 import { homeDir, isDirectory, isReadableFile, whichSync } from '../core/fs.ts';
@@ -44,7 +44,7 @@ const MAX_PARSE_WARNINGS = 20;
 const HEAD_BYTES = 64 * 1024;
 
 export function claudeHome(): string {
-  const override = process.env['HAVRIN_CLAUDE_HOME'];
+  const override = process.env['CALIPER_CLAUDE_HOME'];
   if (override && path.isAbsolute(override)) return override;
   const env = process.env['CLAUDE_CONFIG_DIR'];
   if (env && path.isAbsolute(env)) return env;
@@ -274,10 +274,10 @@ export class ClaudeAdapter implements AgentAdapter {
 
   readSession(installation: AgentInstallation, meta: SessionMeta): SessionRecord {
     if (installation.layout !== 'jsonl-projects') {
-      throw new HavrinError('UNSUPPORTED', `Claude layout ${installation.layout ?? 'unknown'} is not supported`);
+      throw new CaliperError('UNSUPPORTED', `Claude layout ${installation.layout ?? 'unknown'} is not supported`);
     }
     const file = transcriptPathById.get(meta.id) ?? this.findTranscript(meta.id);
-    if (!file) throw new HavrinError('NO_DATA', `Transcript for session ${meta.id} not found`);
+    if (!file) throw new CaliperError('NO_DATA', `Transcript for session ${meta.id} not found`);
 
     const warnings: string[] = [];
     let partial = false;
@@ -290,7 +290,7 @@ export class ClaudeAdapter implements AgentAdapter {
     try {
       stat = fs.statSync(file);
     } catch (err) {
-      throw new HavrinError('IO', `Cannot stat ${file}: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Cannot stat ${file}: ${errorMessage(err)}`);
     }
     if (stat.size > MAX_TRANSCRIPT_BYTES) {
       warn(`transcript exceeds ${MAX_TRANSCRIPT_BYTES} bytes; skipped for safety`);
@@ -300,7 +300,7 @@ export class ClaudeAdapter implements AgentAdapter {
     try {
       raw = fs.readFileSync(file, 'utf8');
     } catch (err) {
-      throw new HavrinError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
+      throw new CaliperError('IO', `Cannot read ${file}: ${errorMessage(err)}`);
     }
 
     const groups = new Map<string, AssistantGroup>();

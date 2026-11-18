@@ -41,7 +41,7 @@ const SECRET_VALUE_RE =
 
 /**
  * Redact secret-looking substrings from short diagnostic strings.
- * Defense in depth: Havrin never intentionally ingests secret values, but
+ * Defense in depth: Caliper never intentionally ingests secret values, but
  * tool error messages may echo fragments of input.
  */
 export function redactSecrets(text: string): string {

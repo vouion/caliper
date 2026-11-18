@@ -1,4 +1,4 @@
-# Contributing to Havrin
+# Contributing to Caliper
 
 Thanks for your interest. This project values **correctness, honesty, and privacy** over feature count — please read [`AGENTS.md`](AGENTS.md) (the engineering invariants) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before opening a PR.
 

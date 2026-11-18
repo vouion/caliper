@@ -19,7 +19,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { AgentInstallation, ModelRef, SessionEvent, SessionRecord, ToolCall, ToolStatus, TokenUsage } from '../core/types.ts';
 import { emptyTokens } from '../core/types.ts';
 import type { AgentAdapter, SessionMeta } from './adapter.ts';
-import { HavrinError, errorMessage } from '../core/errors.ts';
+import { CaliperError, errorMessage } from '../core/errors.ts';
 import { fingerprint, sanitizeErrorMessage, sanitizeFreeText, sanitizeControlChars } from '../core/util.ts';
 import { classifyCommand } from '../core/classify.ts';
 import { isDirectory, isReadableFile, whichSync, xdgConfigHome, xdgDataHome, homeDir } from '../core/fs.ts';
@@ -27,13 +27,13 @@ import { isDirectory, isReadableFile, whichSync, xdgConfigHome, xdgDataHome, hom
 const MAX_PARSE_WARNINGS = 20;
 
 export function opencodeDataDir(): string {
-  const override = process.env['HAVRIN_OPENCODE_DATA_DIR'];
+  const override = process.env['CALIPER_OPENCODE_DATA_DIR'];
   if (override && path.isAbsolute(override)) return override;
   return path.join(xdgDataHome(), 'opencode');
 }
 
 export function opencodeConfigDir(): string {
-  const override = process.env['HAVRIN_OPENCODE_CONFIG_DIR'];
+  const override = process.env['CALIPER_OPENCODE_CONFIG_DIR'];
   if (override && path.isAbsolute(override)) return override;
   return path.join(xdgConfigHome(), 'opencode');
 }
@@ -87,10 +87,10 @@ function openDbReadOnly(dbPath: string): DatabaseSync {
   try {
     return new DatabaseSync(dbPath, { readOnly: true });
   } catch (err) {
-    throw new HavrinError(
+    throw new CaliperError(
       'IO',
       `Cannot open OpenCode database read-only: ${errorMessage(err)}`,
-      'Is OpenCode running with an exclusive lock? Havrin never writes to agent data.',
+      'Is OpenCode running with an exclusive lock? Caliper never writes to agent data.',
     );
   }
 }
@@ -215,7 +215,7 @@ export class OpenCodeAdapter implements AgentAdapter {
       if (isDirectory(legacy)) {
         installation.layout = 'legacy-json';
         issues.push(
-          'Legacy JSON session storage detected. Havrin v0.1 supports the SQLite layout (OpenCode ≥ 2.x).',
+          'Legacy JSON session storage detected. Caliper v0.1 supports the SQLite layout (OpenCode ≥ 2.x).',
         );
       } else if (isDirectory(dataDir)) {
         installation.layout = 'unknown';
@@ -285,7 +285,7 @@ export class OpenCodeAdapter implements AgentAdapter {
 
   readSession(installation: AgentInstallation, meta: SessionMeta): SessionRecord {
     if (installation.layout !== 'sqlite-v2') {
-      throw new HavrinError('UNSUPPORTED', `OpenCode layout ${installation.layout ?? 'unknown'} is not supported`);
+      throw new CaliperError('UNSUPPORTED', `OpenCode layout ${installation.layout ?? 'unknown'} is not supported`);
     }
     const dbPath = opencodeDbPath();
     const db = openDbReadOnly(dbPath);
@@ -303,7 +303,7 @@ export class OpenCodeAdapter implements AgentAdapter {
            FROM session_v2 WHERE id = ?`,
         )
         .get(meta.id) as SessionRow | undefined;
-      if (!row) throw new HavrinError('NO_DATA', `Session ${meta.id} disappeared from the database`);
+      if (!row) throw new CaliperError('NO_DATA', `Session ${meta.id} disappeared from the database`);
 
       const events: SessionEvent[] = [];
       // Guard against pathological sessions: message data includes full tool

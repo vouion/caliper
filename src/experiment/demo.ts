@@ -20,7 +20,7 @@ export interface ExperimentDemoOutcome {
 }
 
 export async function runExperimentDemo(): Promise<ExperimentDemoOutcome> {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'havrin-exp-demo-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'caliper-exp-demo-'));
   try {
     const templateDir = path.join(tmp, 'template');
     materializeBuiltinTemplate(templateDir);
