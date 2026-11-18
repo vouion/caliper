@@ -50,7 +50,7 @@ The observe → diagnose → **experiment → verify** loop, with correctness-fi
 - ✅ Run locks, stale-lock recovery, interrupted-run resume, completed-trial duplicate protection
 - ✅ `havrin experiment list|create|run|report|inspect|demo`; terminal + JSON reports
 - ✅ Privacy: no conversation content in registry; transient stdout artifacts deleted; workspace isolation tested; sentinel tests
-- ✅ 181 automated tests; full v0.2 suite re-run with no regressions
+- ✅ 182 automated tests; full v0.2 suite re-run with no regressions
 - ⚠ Live paid-model experiments have NOT been run by the maintainers (approval-gated); real-run verification is the first v0.3.x item
 
 ### v0.3.x hardening (next)

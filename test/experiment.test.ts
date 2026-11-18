@@ -450,6 +450,16 @@ test('verdict: n=3 correctness gap is preliminary, not verified', () => {
   assert.equal(cmp.verdict.confidence, 'preliminary');
 });
 
+test('verdict: zero-duration trials do not produce division artifacts', () => {
+  const trials = [
+    ...Array.from({ length: 5 }, (_, i) => trial('a', i, { success: true, ms: 0, out: 1000 })),
+    ...Array.from({ length: 5 }, (_, i) => trial('b', i, { success: true, ms: 0, out: 800 })),
+  ];
+  const cmp = compareExperiment(recordWith(trials, 5));
+  assert.equal(cmp.verdict.winnerConfigId, null);
+  assert.ok(Number.isFinite(cmp.aggregates[0]?.executionMs?.mean ?? 0));
+});
+
 test('verdict: unavailable metrics stay null, never zero', () => {
   const t = trial('a', 0, { success: true, ms: 100, out: 100 });
   delete t.sessionMetrics;

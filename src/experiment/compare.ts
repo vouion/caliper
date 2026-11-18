@@ -134,7 +134,7 @@ function comparePair(base: ConfigAggregate, cand: ConfigAggregate, n: number): P
   }
 
   // 2. Efficiency only when correctness is comparable and high.
-  if (srB >= COMPARABLE_SUCCESS && srC >= COMPARABLE_SUCCESS && base.executionMs && cand.executionMs && base.tokens && cand.tokens) {
+  if (srB >= COMPARABLE_SUCCESS && srC >= COMPARABLE_SUCCESS && base.executionMs && cand.executionMs && base.executionMs.mean > 0 && cand.executionMs.mean > 0 && base.tokens && cand.tokens) {
     const timeGain = 1 - cand.executionMs.mean / base.executionMs.mean;
     const outGain = base.tokens.output > 0 ? 1 - cand.tokens.output / base.tokens.output : 0;
     const inGain = base.tokens.input > 0 ? 1 - cand.tokens.input / base.tokens.input : 0;

@@ -138,17 +138,36 @@ function pidAlive(pid: number): boolean {
 
 export function acquireRunLock(id: string): void {
   const file = lockPath(id);
-  try {
-    const existing = JSON.parse(fs.readFileSync(file, 'utf8')) as { pid?: number };
-    if (typeof existing.pid === 'number' && pidAlive(existing.pid)) {
-      throw new HavrinError('IO', `Experiment ${id} is already running (pid ${existing.pid}).`, 'Wait for it to finish; stale locks from dead processes are recovered automatically.');
-    }
-  } catch (err) {
-    if (err instanceof HavrinError) throw err;
-    // Missing/corrupt lock → safe to take over.
-  }
   fs.mkdirSync(experimentDir(id), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify({ pid: process.pid, acquiredAt: Date.now() }), { mode: 0o600 });
+  // Atomic exclusive create closes the check-then-write race between
+  // concurrent processes. A stale lock (dead pid) is removed and retried once.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(file, JSON.stringify({ pid: process.pid, acquiredAt: Date.now() }), { mode: 0o600, flag: 'wx' });
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') {
+        throw new HavrinError('IO', `Cannot acquire run lock for ${id}: ${errorMessage(err)}`);
+      }
+      let existingPid: number | undefined;
+      try {
+        const existing = JSON.parse(fs.readFileSync(file, 'utf8')) as { pid?: number };
+        existingPid = typeof existing.pid === 'number' ? existing.pid : undefined;
+      } catch {
+        existingPid = undefined; // corrupt lock → treat as stale
+      }
+      if (existingPid !== undefined && pidAlive(existingPid)) {
+        throw new HavrinError('IO', `Experiment ${id} is already running (pid ${existingPid}).`, 'Wait for it to finish; stale locks from dead processes are recovered automatically.');
+      }
+      try {
+        fs.unlinkSync(file);
+      } catch {
+        /* another process may have cleaned it; retry will decide */
+      }
+    }
+  }
+  throw new HavrinError('IO', `Cannot acquire run lock for ${id} after stale-lock recovery.`);
 }
 
 export function releaseRunLock(id: string): void {

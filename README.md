@@ -192,7 +192,7 @@ Details: [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ```sh
 npm install
-npm test          # node:test suite (181 tests), no test framework dependency
+npm test          # node:test suite (182 tests), no test framework dependency
 npm run typecheck
 npm run build     # tsc → dist/
 node --experimental-strip-types src/cli.ts audit   # run from source
