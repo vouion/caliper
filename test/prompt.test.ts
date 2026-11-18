@@ -123,6 +123,26 @@ test('prompt: Detected issues respects the severity threshold', () => {
   for (const f of low) assert.ok(!section.includes(f.title), `low finding leaked into high-only prompt: ${f.title}`);
 });
 
+test('prompt: explains session findings are historical, environment findings current', () => {
+  const prompt = buildFixPrompt(runDemoAudit());
+  assert.ok(prompt.includes('historical patterns'));
+  assert.ok(prompt.includes('Environment-scoped issues reflect current configuration'));
+});
+
+test('cli: prompt --demo --copy copies the prompt to the clipboard', () => {
+  const dir = tempDir();
+  const capture = path.join(dir, 'cap.txt');
+  const fake = path.join(dir, 'wl-copy');
+  fs.writeFileSync(fake, `#!/bin/sh\ncat > "${capture}"\n`);
+  fs.chmodSync(fake, 0o755);
+  const env = { ...promptEnv(dir), PATH: `${dir}:${process.env['PATH'] ?? ''}`, WAYLAND_DISPLAY: 'wayland-0' };
+  const r = runCli(['prompt', '--demo', '--copy'], env);
+  assert.equal(r.status, 0);
+  assert.ok(r.stdout.includes('Copied prompt to clipboard'));
+  assert.ok(fs.readFileSync(capture, 'utf8').includes('# Workflow optimization task'));
+  cleanup(dir);
+});
+
 // ---------------------------------------------------------------------------
 // CLI integration
 // ---------------------------------------------------------------------------

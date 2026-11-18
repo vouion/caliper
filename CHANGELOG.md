@@ -5,6 +5,14 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.4 — One-paste prompts + adaptive-audit clarity (2026-11-18)
+
+### Added
+- `caliper prompt --copy`: copy the generated prompt straight to the system clipboard (`wl-copy`/`xclip`/`xsel`/`pbcopy`) for a single paste into any agent — no manual file copying. Fixed-argv, local-only, bounded subprocess; clear error + `--output` fallback when no clipboard utility exists.
+
+### Changed
+- The audit report and fix prompt now explain the evidence model: **session findings are historical patterns** from the analyzed window (workflow fixes appear in *new* sessions — verify with `caliper audit --since 7d`), while **environment findings reflect current config** and clear immediately once fixed. Addresses the "I applied fixes but findings barely dropped" confusion.
+
 ## 0.4.3 — Fix prompt centered on detected issues (2026-11-18)
 
 ### Changed

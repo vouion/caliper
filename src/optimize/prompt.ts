@@ -113,6 +113,8 @@ export function buildFixPrompt(report: AuditReport, opts: FixPromptOptions = {})
   } else {
     lines.push('The specific problems Caliper detected in your sessions and configuration. The prioritized fixes below address these.');
     lines.push('');
+    lines.push('Note: session-scoped issues are historical patterns from the analyzed window — the fixes prevent them in future sessions rather than erasing past ones (re-audit a recent window to see improvement). Environment-scoped issues reflect current configuration and clear once fixed.');
+    lines.push('');
     findings.forEach((f, n) => {
       const meta = [`rule \`${f.ruleId}\``, `confidence ${f.confidence}`, `scope ${f.scope}`];
       if (f.agent) meta.push(f.agent);

@@ -181,6 +181,11 @@ export function renderTerminal(report: AuditReport, opts: RenderOptions = {}): s
   // Findings
   const counts = countBySeverity(report.findings);
   push(p.bold(`FINDINGS (${report.findings.length})`) + p.dim(`  high ${counts.high} · medium ${counts.medium} · low ${counts.low}`));
+  if (report.findings.length > 0) {
+    push(p.dim('  Session findings = past behavior in this window; workflow fixes show up in new'));
+    push(p.dim('  sessions (caliper audit --since 7d), not by erasing history. Environment findings'));
+    push(p.dim('  = current config; they clear immediately once fixed.'));
+  }
   if (report.findings.length === 0 && c.sessionsAnalyzed > 0) {
     push(p.green('  No issues matched the diagnostic rules in the analyzed data.'));
     push(p.dim('  Rules are conservative; absence of findings is not a guarantee of optimality.'));

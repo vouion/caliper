@@ -14,6 +14,7 @@ import { runDoctor } from './doctor.ts';
 import { runDemoAudit } from './demo/dataset.ts';
 import { loadLastAudit } from './store.ts';
 import { buildFixPrompt, selectRecommendations, type PromptAgent } from './optimize/prompt.ts';
+import { copyToClipboard } from './optimize/clipboard.ts';
 import { renderTerminal, shouldUseColor } from './report/terminal.ts';
 import { createExperiment, runExperiment } from './experiment/runner.ts';
 import { listExperiments, loadExperiment } from './experiment/store.ts';
@@ -66,6 +67,7 @@ PROMPT OPTIONS
                       (default generic)
   --min-severity <s>  Include fixes at or above: low | medium | high (default low)
   --output <file>     Write the prompt to a file instead of stdout
+  --copy              Copy the prompt to the system clipboard (paste into any agent)
   --demo              Build from synthetic demo data (no saved audit needed)
   --json              Emit { agent, minSeverity, recommendationCount, prompt, ... }
 
@@ -110,6 +112,7 @@ function parse(argv: string[]): Parsed {
         project: { type: 'string' },
         'min-severity': { type: 'string' },
         output: { type: 'string' },
+        copy: { type: 'boolean', default: false },
         demo: { type: 'boolean', default: false },
         'no-color': { type: 'boolean', default: false },
         help: { type: 'boolean', default: false },
@@ -283,6 +286,8 @@ function main(argv: string[]): number | Promise<number> {
           throw new CaliperError('IO', `Could not write prompt to ${output}: ${errorMessage(err)}`);
         }
       }
+      const copy = values['copy'] === true;
+      if (copy) copyToClipboard(prompt);
       if (values['json']) {
         const payload = {
           agent,
@@ -291,9 +296,14 @@ function main(argv: string[]): number | Promise<number> {
           findingCount: report.findings.length,
           recommendationCount,
           ...(output !== undefined ? { output } : {}),
+          ...(copy ? { copied: true } : {}),
           prompt,
         };
         process.stdout.write(JSON.stringify(payload, null, 2) + '\n');
+      } else if (copy && output !== undefined) {
+        process.stdout.write(`Wrote prompt to ${output} and copied to clipboard (${plural(recommendationCount, 'recommendation')}, agent ${agent}). Paste into your agent.\n`);
+      } else if (copy) {
+        process.stdout.write(`Copied prompt to clipboard (${plural(recommendationCount, 'recommendation')}, agent ${agent}). Paste into your agent.\n`);
       } else if (output !== undefined) {
         process.stdout.write(`Wrote prompt to ${output} (${plural(recommendationCount, 'recommendation')}, agent ${agent}).\n`);
       } else {
