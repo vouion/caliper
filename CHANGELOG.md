@@ -5,6 +5,14 @@ All notable changes to Caliper are documented here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Caliper is pre-1.0:
 minor versions may include breaking changes to the JSON report schema or CLI.
 
+## 0.4.7 — Cozy pixel-art brand identity (2026-11-19)
+
+### Changed
+- **New visual identity**: cozy isometric pixel art with true 4×4 Bayer dithering and a 13-color navy/teal palette with a single amber accent (the desk lamp). Replaces the prismatic look.
+- New `assets/brand/`: `hero-dark.png` / `hero-light.png` (1280×640 banners), `hero-dark.gif` (8-frame rain + cursor loop), `mark.png` / `mark-reverse.png` (caliper-jaw "C", legible at 32px), and `DESIGN-SPEC.md` (palette, dither method, JetBrains Mono type, rationale).
+- README hero now the animated cozy banner; GitHub social preview replaced with the night banner.
+- Terminal demo GIF re-themed to the brand palette (navy field, mist text, teal/amber semantics) for cohesion.
+
 ## 0.4.6 — QoL polish + cleanup (2026-11-18)
 
 ### Added

@@ -6,8 +6,10 @@
 [![Node >= 22.13](https://img.shields.io/badge/node-%3E%3D22.13-339933.svg)](https://nodejs.org)
 
 <p align="center">
-  <img src="assets/social-preview.png" alt="Caliper by Havrin — the evidence-driven optimization engine for AI development" width="100%" />
+  <img src="assets/brand/hero-dark.gif" alt="Caliper by Havrin — a cozy isometric pixel-art developer workstation at dusk: a glowing terminal, warm desk lamp, steaming mug, and a sleeping cat. The evidence-driven optimization engine for AI development." width="100%" />
 </p>
+
+<p align="center"><sub>Cozy isometric pixel art · <a href="assets/brand/hero-light.png">day variant</a> · <a href="assets/brand/DESIGN-SPEC.md">design spec</a> · <a href="assets/brand/mark.png">mark</a></sub></p>
 
 **The open-source optimization engine for AI-powered development.**
 
